@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Playlist Maker</title>
+</head>
+<body>
+<div id="PlaylistMakerPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+            <div class="pmk-app">
+
+                <header class="pmk-header">
+                    <h1>Playlist Maker</h1>
+                    <p class="pmk-subtitle">Search your library, pick a starting genre or artist, and build a playlist with live recommendations &mdash; just like Spotify or Apple Music.</p>
+                </header>
+
+                <div class="pmk-columns">
+
+                    <!-- Discover / search column -->
+                    <section class="pmk-panel pmk-discover">
+                        <h2>Discover</h2>
+
+                        <div class="pmk-searchRow">
+                            <input is="emby-input" id="pmkSearchInput" type="text" placeholder="Search tracks, artists, albums&hellip;" class="pmk-searchInput" />
+                        </div>
+
+                        <div class="pmk-chipGroup" id="pmkGenreChips">
+                            <span class="pmk-chipLabel">Genres</span>
+                        </div>
+                        <div class="pmk-chipGroup" id="pmkArtistChips">
+                            <span class="pmk-chipLabel">Artists</span>
+                        </div>
+
+                        <div class="pmk-results" id="pmkSearchResults">
+                            <p class="pmk-empty">Search above, or pick a genre / artist to get started.</p>
+                        </div>
+                    </section>
+
+                    <!-- Draft playlist column -->
+                    <section class="pmk-panel pmk-draft">
+                        <h2>Your Playlist</h2>
+
+                        <div class="pmk-draftMeta">
+                            <input is="emby-input" id="pmkPlaylistName" type="text" placeholder="Playlist name" class="pmk-nameInput" />
+                            <label class="pmk-publicToggle">
+                                <input is="emby-checkbox" type="checkbox" id="pmkPlaylistPublic" />
+                                <span>Public</span>
+                            </label>
+                        </div>
+
+                        <div class="pmk-draftSummary" id="pmkDraftSummary">0 tracks</div>
+
+                        <ol class="pmk-draftList" id="pmkDraftList">
+                            <li class="pmk-empty">Add tracks from Discover or Recommended to build your playlist.</li>
+                        </ol>
+
+                        <button is="emby-button" type="button" id="pmkSaveButton" class="raised button-submit pmk-saveButton" disabled>
+                            Save Playlist
+                        </button>
+                        <div class="pmk-status" id="pmkStatus"></div>
+                    </section>
+
+                    <!-- Recommendations column -->
+                    <section class="pmk-panel pmk-recommend">
+                        <div class="pmk-recommendHeader">
+                            <h2>Recommended For You</h2>
+                            <button is="emby-button" type="button" id="pmkShuffleButton" class="pmk-shuffleButton" title="Refresh suggestions">&#8635;</button>
+                        </div>
+                        <p class="pmk-recommendHint" id="pmkRecommendHint">Popular in your library. Add a track or pick a genre/artist to personalize these.</p>
+                        <div class="pmk-results" id="pmkRecommendResults">
+                            <p class="pmk-empty">Loading recommendations&hellip;</p>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript" src="playlistmaker.js"></script>
+</body>
+</html>

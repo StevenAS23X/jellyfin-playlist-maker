@@ -1,0 +1,243 @@
+.pmk-app {
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+.pmk-header h1 {
+    margin-bottom: 0.1em;
+}
+
+.pmk-subtitle {
+    opacity: 0.7;
+    max-width: 60em;
+    margin-top: 0;
+}
+
+.pmk-columns {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1.1fr;
+    gap: 1.5em;
+    align-items: start;
+    margin-top: 1.5em;
+}
+
+@media (max-width: 100em) {
+    .pmk-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pmk-panel {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.6em;
+    padding: 1.2em;
+    min-height: 30em;
+    display: flex;
+    flex-direction: column;
+}
+
+.pmk-panel h2 {
+    margin-top: 0;
+    font-size: 1.1em;
+}
+
+.pmk-searchRow {
+    margin-bottom: 0.8em;
+}
+
+.pmk-searchInput {
+    width: 100%;
+}
+
+.pmk-chipGroup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em;
+    margin-bottom: 0.6em;
+}
+
+.pmk-chipLabel {
+    font-size: 0.8em;
+    opacity: 0.6;
+    margin-right: 0.3em;
+}
+
+.pmk-chip {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: inherit;
+    border-radius: 999px;
+    padding: 0.25em 0.9em;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pmk-chip:hover {
+    border-color: rgba(0, 164, 220, 0.8);
+}
+
+.pmk-chip.pmk-chipActive {
+    background: rgba(0, 164, 220, 0.9);
+    border-color: rgba(0, 164, 220, 0.9);
+    color: #fff;
+}
+
+.pmk-results {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 42em;
+}
+
+.pmk-trackRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6em;
+    padding: 0.5em 0.3em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pmk-trackRow:last-child {
+    border-bottom: none;
+}
+
+.pmk-trackInfo {
+    min-width: 0;
+    flex: 1;
+}
+
+.pmk-trackName {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pmk-trackMeta {
+    font-size: 0.82em;
+    opacity: 0.65;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pmk-trackReason {
+    font-size: 0.78em;
+    color: rgba(0, 164, 220, 0.9);
+    margin-top: 0.15em;
+}
+
+.pmk-trackAction {
+    flex-shrink: 0;
+    width: 2.2em;
+    height: 2.2em;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: transparent;
+    color: inherit;
+    font-size: 1.1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pmk-trackAction:hover {
+    border-color: rgba(0, 164, 220, 0.9);
+    color: rgba(0, 164, 220, 0.9);
+}
+
+.pmk-trackAction.pmk-removeAction:hover {
+    border-color: #e0455b;
+    color: #e0455b;
+}
+
+.pmk-empty {
+    opacity: 0.55;
+    font-size: 0.9em;
+    padding: 1em 0.3em;
+}
+
+.pmk-draftMeta {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    margin-bottom: 0.4em;
+}
+
+.pmk-nameInput {
+    flex: 1;
+}
+
+.pmk-publicToggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+
+.pmk-draftSummary {
+    font-size: 0.82em;
+    opacity: 0.65;
+    margin-bottom: 0.5em;
+}
+
+.pmk-draftList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    overflow-y: auto;
+    max-height: 34em;
+}
+
+.pmk-saveButton {
+    margin-top: 1em;
+    width: 100%;
+}
+
+.pmk-status {
+    margin-top: 0.6em;
+    font-size: 0.85em;
+    min-height: 1.2em;
+}
+
+.pmk-status.pmk-statusError {
+    color: #e0455b;
+}
+
+.pmk-status.pmk-statusOk {
+    color: #3fbf5f;
+}
+
+.pmk-recommendHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pmk-shuffleButton {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: inherit;
+    border-radius: 50%;
+    width: 2.2em;
+    height: 2.2em;
+    cursor: pointer;
+    font-size: 1.1em;
+}
+
+.pmk-shuffleButton:hover {
+    border-color: rgba(0, 164, 220, 0.9);
+    color: rgba(0, 164, 220, 0.9);
+}
+
+.pmk-recommendHint {
+    font-size: 0.82em;
+    opacity: 0.65;
+    margin-top: 0.3em;
+}

@@ -1,0 +1,16 @@
+## .NET build output
+bin/
+obj/
+*.user
+
+## Publish output
+publish/
+artifacts/
+
+## IDE
+.vs/
+.vscode/
+*.suo
+
+## OS
+.DS_Store
