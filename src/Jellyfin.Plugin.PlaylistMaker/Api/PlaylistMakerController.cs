@@ -6,6 +6,7 @@ using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Services;
 using MediaBrowser.Controller.Playlists;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.PlaylistMaker.Api;

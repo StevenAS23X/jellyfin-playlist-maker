@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Jellyfin.Data.Entities;
 using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Configuration;
 using MediaBrowser.Controller.Entities;
@@ -244,7 +245,7 @@ public class RecommendationService : IRecommendationService
             .ToList();
     }
 
-    private IEnumerable<Audio> GetAllTracks(MediaBrowser.Controller.Entities.User user)
+    private IEnumerable<Audio> GetAllTracks(User user)
     {
         var query = new InternalItemsQuery(user)
         {
@@ -269,7 +270,7 @@ public class RecommendationService : IRecommendationService
         }
     }
 
-    private double PopularityScore(MediaBrowser.Controller.Entities.User user, Audio track)
+    private double PopularityScore(User user, Audio track)
     {
         var userData = _userDataManager.GetUserData(user, track);
         return userData?.PlayCount ?? 0;
