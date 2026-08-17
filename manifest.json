@@ -1,1 +1,20 @@
-[]
+[
+    {
+        "guid": "f3b1a7f0-4b9a-4e9c-9c1e-8a2b6d5e7c11",
+        "name": "Playlist Maker",
+        "description": "Build playlists quickly with live genre/artist based recommendations, similar to Spotify or Apple Music.",
+        "overview": "Adds a Playlist Maker page to Jellyfin's sidebar with a fast search + drag-free playlist builder and a live 'more like this' recommendations panel driven by genre and artist matching.",
+        "owner": "StevenAS23X",
+        "category": "General",
+        "versions": [
+            {
+                "version": "1.0.0.0",
+                "changelog": "## v1.0.0.0\n- Initial release.\n- Sidebar \"Playlist Maker\" page: search your library, pick genre/artist chips, and build a playlist.\n- Live \"Recommended For You\" panel that scores your library by genre/artist overlap with the current draft.\n- Cold-start fallback surfaces popular/recently added tracks when nothing has been picked yet.\n",
+                "targetAbi": "10.9.0.0",
+                "sourceUrl": "https://StevenAS23X.github.io/jellyfin-playlist-maker/playlist-maker/playlist-maker_1.0.0.0.zip",
+                "checksum": "9e3ceffcd99fee64c66fc233c2baa22a",
+                "timestamp": "2026-08-17T02:56:25Z"
+            }
+        ]
+    }
+]
