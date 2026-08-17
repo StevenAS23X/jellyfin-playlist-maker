@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Data.Entities;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Model.Entities;
-using MediaBrowser.Model.Querying;
 
 namespace Jellyfin.Plugin.PlaylistMaker.Services;
 
@@ -59,7 +58,7 @@ public class RecommendationService : IRecommendationService
 
         return _libraryManager.GetItemList(libraryQuery)
             .OfType<Audio>()
-            .Select(ToDto)
+            .Select(t => ToDto(t))
             .ToList();
     }
 
@@ -282,7 +281,7 @@ public class RecommendationService : IRecommendationService
         {
             Id = track.Id,
             Name = track.Name,
-            Album = track.Album,
+            Album = track.AlbumEntity?.Name,
             Artists = GetArtistNames(track).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             Genres = (track.Genres ?? Array.Empty<string>()).ToList(),
             ProductionYear = track.ProductionYear,

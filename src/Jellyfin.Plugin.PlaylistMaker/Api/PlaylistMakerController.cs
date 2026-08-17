@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Services;
 using MediaBrowser.Controller.Playlists;
+using MediaBrowser.Model.Playlists;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -119,13 +120,13 @@ public class PlaylistMakerController : ControllerBase
             Name = request.Name,
             UserId = request.UserId,
             ItemIdList = request.ItemIds.ToList(),
-            MediaType = MediaBrowser.Model.Entities.MediaType.Audio,
+            MediaType = Jellyfin.Data.Enums.MediaType.Audio,
             Public = request.Public
         };
 
         var result = await _playlistManager.CreatePlaylist(creationRequest).ConfigureAwait(false);
 
-        return Ok(new PlaylistResultDto { Id = result.Id });
+        return Ok(new PlaylistResultDto { Id = Guid.Parse(result.Id) });
     }
 
     /// <summary>
@@ -138,7 +139,7 @@ public class PlaylistMakerController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult> AddItems([FromRoute] Guid playlistId, [FromBody] AddItemsRequestDto request)
     {
-        await _playlistManager.AddToPlaylistAsync(playlistId, request.ItemIds.ToList(), request.UserId)
+        await _playlistManager.AddItemToPlaylistAsync(playlistId, request.ItemIds.ToList(), request.UserId)
             .ConfigureAwait(false);
 
         return NoContent();
