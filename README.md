@@ -81,12 +81,54 @@ push, so you can check the Actions tab for compile status without needing a loca
 
 ## Installing
 
+### Option A: plugin repository (recommended — installs/updates like a catalog plugin)
+
+This repo publishes itself as a self-hosted Jellyfin plugin repository, the same
+mechanism the plugins in [awesome-jellyfin](https://github.com/awesome-jellyfin/awesome-jellyfin)
+use. Once set up, there's no manual file copying, ever — Jellyfin's own plugin catalog
+handles install and future updates.
+
+1. In Jellyfin: Dashboard → Plugins → Repositories → **Add Repository**.
+2. Name it whatever you like, and set the URL to:
+   ```
+   https://stevenas23x.github.io/jellyfin-playlist-maker/manifest.json
+   ```
+3. Go to Dashboard → Plugins → Catalog, find **Playlist Maker**, install it, restart
+   Jellyfin.
+
+This URL is generated automatically by `.github/workflows/publish-repo.yml`, which runs
+`jprm` (the Jellyfin Plugin Repository Manager) against `build.yaml` every time a `v*`
+tag is pushed, and publishes/updates `manifest.json` + the built plugin zip on the
+`gh-pages` branch. Pushing a new version tag is the entire release process from then on.
+
+> **One manual, one-time step:** GitHub Pages itself has to be turned on for the
+> `gh-pages` branch — that's a repo settings change this session's tooling isn't
+> permitted to make for you. In the repo: **Settings → Pages → Source: Deploy from a
+> branch → Branch: `gh-pages` / `/(root)` → Save.** After that the URL above goes live
+> and stays live across every future release.
+
+### Option B: manual install
+
 1. Build the plugin (or grab `Jellyfin.Plugin.PlaylistMaker.dll` from a CI run's
    artifacts).
 2. Copy it into a new folder under your Jellyfin server's plugin directory, e.g.
    `<jellyfin-data>/plugins/Playlist Maker/Jellyfin.Plugin.PlaylistMaker.dll`.
 3. Restart Jellyfin.
 4. Look for **Playlist Maker** in the sidebar (or under Dashboard → Plugins).
+
+## Releasing a new version
+
+Bump the `version` in `src/Jellyfin.Plugin.PlaylistMaker/build.yaml` (and add a
+changelog entry there), commit, then tag and push:
+
+```bash
+git tag v1.0.1.0
+git push origin v1.0.1.0
+```
+
+The `publish-repo` workflow builds that tag, packages it, and updates
+`manifest.json` on `gh-pages`. Anyone who already added the repository URL in
+Jellyfin sees the update in their catalog automatically — nothing else to do.
 
 ## Configuration
 
