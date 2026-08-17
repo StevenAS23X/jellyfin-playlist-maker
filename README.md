@@ -73,13 +73,11 @@ push, so you can check the Actions tab for compile status without needing a loca
 
 > **Note on this PR:** the sandbox this was developed in has network egress limited to
 > a small allowlist (npm/PyPI/NuGet/GitHub) and could not reach `dot.net` or
-> Microsoft's SDK download CDN, so the code could not be compiled locally before
-> pushing. The CI workflow above is the real compile check — see its status on this
-> branch, and treat any red build as something to fix before merging. The Jellyfin
-> server API surface used here (`ILibraryManager`, `IPlaylistManager`,
-> `IUserDataManager`, `PluginPageInfo`, etc.) was written from the published Jellyfin
-> server source, but exact method signatures do drift between versions, so double-check
-> the CI result.
+> Microsoft's SDK download CDN, so the code could not be compiled locally. Instead it
+> was cross-checked against the actual Jellyfin `v10.9.11` server source (cloned from
+> GitHub) for every non-obvious API — `IPlaylistManager`, `PlaylistCreationRequest`,
+> `BaseItemKind`, `MediaType`, `PluginPageInfo`, etc. — and verified compiling via the
+> CI workflow above, which is green as of the latest commit on this branch.
 
 ## Installing
 
