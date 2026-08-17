@@ -17,8 +17,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Web\playlistmaker.html" />
-    <EmbeddedResource Include="Web\playlistmaker.js" />
-    <EmbeddedResource Include="Web\playlistmaker.css" />
   </ItemGroup>
 
 </Project>

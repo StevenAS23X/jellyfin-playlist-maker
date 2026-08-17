@@ -7,6 +7,248 @@
 <div id="PlaylistMakerPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
     <div data-role="content">
         <div class="content-primary">
+            <style>
+                .pmk-app {
+                    max-width: 1500px;
+                    margin: 0 auto;
+                }
+
+                .pmk-header h1 {
+                    margin-bottom: 0.1em;
+                }
+
+                .pmk-subtitle {
+                    opacity: 0.7;
+                    max-width: 60em;
+                    margin-top: 0;
+                }
+
+                .pmk-columns {
+                    display: grid;
+                    grid-template-columns: 1.1fr 1fr 1.1fr;
+                    gap: 1.5em;
+                    align-items: start;
+                    margin-top: 1.5em;
+                }
+
+                @media (max-width: 100em) {
+                    .pmk-columns {
+                        grid-template-columns: 1fr;
+                    }
+                }
+
+                .pmk-panel {
+                    background: rgba(255, 255, 255, 0.04);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 0.6em;
+                    padding: 1.2em;
+                    min-height: 30em;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .pmk-panel h2 {
+                    margin-top: 0;
+                    font-size: 1.1em;
+                }
+
+                .pmk-searchRow {
+                    margin-bottom: 0.8em;
+                }
+
+                .pmk-searchInput {
+                    width: 100%;
+                }
+
+                .pmk-chipGroup {
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    gap: 0.4em;
+                    margin-bottom: 0.6em;
+                }
+
+                .pmk-chipLabel {
+                    font-size: 0.8em;
+                    opacity: 0.6;
+                    margin-right: 0.3em;
+                }
+
+                .pmk-chip {
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    background: transparent;
+                    color: inherit;
+                    border-radius: 999px;
+                    padding: 0.25em 0.9em;
+                    font-size: 0.85em;
+                    cursor: pointer;
+                    transition: background 0.15s ease, border-color 0.15s ease;
+                }
+
+                .pmk-chip:hover {
+                    border-color: rgba(0, 164, 220, 0.8);
+                }
+
+                .pmk-chip.pmk-chipActive {
+                    background: rgba(0, 164, 220, 0.9);
+                    border-color: rgba(0, 164, 220, 0.9);
+                    color: #fff;
+                }
+
+                .pmk-results {
+                    flex: 1;
+                    overflow-y: auto;
+                    max-height: 42em;
+                }
+
+                .pmk-trackRow {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 0.6em;
+                    padding: 0.5em 0.3em;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                }
+
+                .pmk-trackRow:last-child {
+                    border-bottom: none;
+                }
+
+                .pmk-trackInfo {
+                    min-width: 0;
+                    flex: 1;
+                }
+
+                .pmk-trackName {
+                    font-weight: 600;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .pmk-trackMeta {
+                    font-size: 0.82em;
+                    opacity: 0.65;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .pmk-trackReason {
+                    font-size: 0.78em;
+                    color: rgba(0, 164, 220, 0.9);
+                    margin-top: 0.15em;
+                }
+
+                .pmk-trackAction {
+                    flex-shrink: 0;
+                    border-radius: 999px;
+                    border: 1px solid rgba(255, 255, 255, 0.35);
+                    background: transparent;
+                    color: inherit;
+                    font-size: 0.85em;
+                    padding: 0.35em 1.1em;
+                    cursor: pointer;
+                }
+
+                .pmk-trackAction:hover {
+                    border-color: rgba(0, 164, 220, 0.9);
+                    color: rgba(0, 164, 220, 0.9);
+                }
+
+                .pmk-trackAction.pmk-removeAction:hover {
+                    border-color: #e0455b;
+                    color: #e0455b;
+                }
+
+                .pmk-empty {
+                    opacity: 0.55;
+                    font-size: 0.9em;
+                    padding: 1em 0.3em;
+                }
+
+                .pmk-draftMeta {
+                    display: flex;
+                    align-items: center;
+                    gap: 1em;
+                    margin-bottom: 0.4em;
+                }
+
+                .pmk-nameInput {
+                    flex: 1;
+                }
+
+                .pmk-publicToggle {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4em;
+                    white-space: nowrap;
+                    font-size: 0.9em;
+                }
+
+                .pmk-draftSummary {
+                    font-size: 0.82em;
+                    opacity: 0.65;
+                    margin-bottom: 0.5em;
+                }
+
+                .pmk-draftList {
+                    list-style: none;
+                    margin: 0;
+                    padding: 0;
+                    flex: 1;
+                    overflow-y: auto;
+                    max-height: 34em;
+                }
+
+                .pmk-saveButton {
+                    margin-top: 1em;
+                    width: 100%;
+                }
+
+                .pmk-status {
+                    margin-top: 0.6em;
+                    font-size: 0.85em;
+                    min-height: 1.2em;
+                }
+
+                .pmk-status.pmk-statusError {
+                    color: #e0455b;
+                }
+
+                .pmk-status.pmk-statusOk {
+                    color: #3fbf5f;
+                }
+
+                .pmk-recommendHeader {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+
+                .pmk-shuffleButton {
+                    background: transparent;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    color: inherit;
+                    border-radius: 50%;
+                    width: 2.2em;
+                    height: 2.2em;
+                    cursor: pointer;
+                    font-size: 1.1em;
+                }
+
+                .pmk-shuffleButton:hover {
+                    border-color: rgba(0, 164, 220, 0.9);
+                    color: rgba(0, 164, 220, 0.9);
+                }
+
+                .pmk-recommendHint {
+                    font-size: 0.82em;
+                    opacity: 0.65;
+                    margin-top: 0.3em;
+                }
+            </style>
+
             <div class="pmk-app">
 
                 <header class="pmk-header">
@@ -74,9 +316,329 @@
 
                 </div>
             </div>
+
+            <script type="text/javascript">
+                (function () {
+                    'use strict';
+
+                    var pageEl = document.querySelector('#PlaylistMakerPage');
+                    if (!pageEl) {
+                        return;
+                    }
+
+                    var CHIP_LIMIT = 24;
+
+                    var state = {
+                        userId: null,
+                        draft: [],
+                        selectedGenres: new Set(),
+                        selectedArtists: new Set(),
+                        searchTimer: null,
+                        recommendTimer: null
+                    };
+
+                    function buildQuery(params) {
+                        var usp = new URLSearchParams();
+                        Object.keys(params || {}).forEach(function (key) {
+                            var value = params[key];
+                            if (value === undefined || value === null || value === '') {
+                                return;
+                            }
+                            if (Array.isArray(value)) {
+                                value.forEach(function (v) { usp.append(key, v); });
+                            } else {
+                                usp.append(key, value);
+                            }
+                        });
+                        var qs = usp.toString();
+                        return qs ? ('?' + qs) : '';
+                    }
+
+                    function apiGet(path, params) {
+                        var url = ApiClient.getUrl(path) + buildQuery(params);
+                        return ApiClient.getJSON(url);
+                    }
+
+                    function apiPostJson(path, body) {
+                        var url = ApiClient.getUrl(path);
+                        return ApiClient.ajax({
+                            type: 'POST',
+                            url: url,
+                            data: JSON.stringify(body),
+                            contentType: 'application/json',
+                            dataType: 'json'
+                        });
+                    }
+
+                    function formatDuration(ticks) {
+                        if (!ticks) {
+                            return '';
+                        }
+                        var totalSeconds = Math.round(ticks / 10000000);
+                        var minutes = Math.floor(totalSeconds / 60);
+                        var seconds = totalSeconds % 60;
+                        return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+                    }
+
+                    function clearChildren(el) {
+                        while (el.firstChild) {
+                            el.removeChild(el.firstChild);
+                        }
+                    }
+
+                    function trackMetaText(track) {
+                        var parts = [];
+                        if (track.Artists && track.Artists.length) {
+                            parts.push(track.Artists.join(', '));
+                        }
+                        if (track.Album) {
+                            parts.push(track.Album);
+                        }
+                        var duration = formatDuration(track.RunTimeTicks);
+                        if (duration) {
+                            parts.push(duration);
+                        }
+                        return parts.join(' • ');
+                    }
+
+                    function buildTrackRow(track, options) {
+                        var row = document.createElement('div');
+                        row.className = 'pmk-trackRow';
+
+                        var info = document.createElement('div');
+                        info.className = 'pmk-trackInfo';
+
+                        var name = document.createElement('div');
+                        name.className = 'pmk-trackName';
+                        name.textContent = track.Name;
+                        info.appendChild(name);
+
+                        var meta = document.createElement('div');
+                        meta.className = 'pmk-trackMeta';
+                        meta.textContent = trackMetaText(track);
+                        info.appendChild(meta);
+
+                        if (track.MatchReason) {
+                            var reason = document.createElement('div');
+                            reason.className = 'pmk-trackReason';
+                            reason.textContent = track.MatchReason;
+                            info.appendChild(reason);
+                        }
+
+                        row.appendChild(info);
+
+                        var action = document.createElement('button');
+                        action.type = 'button';
+                        action.className = 'pmk-trackAction' + (options.remove ? ' pmk-removeAction' : '');
+                        action.textContent = options.remove ? 'Remove' : 'Add';
+                        action.title = options.remove ? 'Remove from playlist' : 'Add to playlist';
+                        action.addEventListener('click', function () { options.onClick(track); });
+                        row.appendChild(action);
+
+                        return row;
+                    }
+
+                    function renderList(container, tracks, options) {
+                        clearChildren(container);
+                        if (!tracks || tracks.length === 0) {
+                            var empty = document.createElement('p');
+                            empty.className = 'pmk-empty';
+                            empty.textContent = options.emptyText;
+                            container.appendChild(empty);
+                            return;
+                        }
+                        tracks.forEach(function (track) {
+                            container.appendChild(buildTrackRow(track, options));
+                        });
+                    }
+
+                    function renderChips(container, label, items, selectedSet) {
+                        clearChildren(container);
+                        var labelEl = document.createElement('span');
+                        labelEl.className = 'pmk-chipLabel';
+                        labelEl.textContent = label;
+                        container.appendChild(labelEl);
+
+                        items.slice(0, CHIP_LIMIT).forEach(function (item) {
+                            var chip = document.createElement('button');
+                            chip.type = 'button';
+                            chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
+                            chip.textContent = item;
+                            chip.addEventListener('click', function () {
+                                if (selectedSet.has(item)) {
+                                    selectedSet.delete(item);
+                                } else {
+                                    selectedSet.add(item);
+                                }
+                                chip.classList.toggle('pmk-chipActive');
+                                scheduleRecommendationRefresh(0);
+                            });
+                            container.appendChild(chip);
+                        });
+                    }
+
+                    function draftIds() {
+                        return state.draft.map(function (t) { return t.Id; });
+                    }
+
+                    function renderDraft() {
+                        var listEl = pageEl.querySelector('#pmkDraftList');
+                        var summaryEl = pageEl.querySelector('#pmkDraftSummary');
+                        var saveButton = pageEl.querySelector('#pmkSaveButton');
+
+                        renderList(listEl, state.draft, {
+                            remove: true,
+                            emptyText: 'Add tracks from Discover or Recommended to build your playlist.',
+                            onClick: function (track) { removeFromDraft(track.Id); }
+                        });
+
+                        var totalTicks = state.draft.reduce(function (sum, t) { return sum + (t.RunTimeTicks || 0); }, 0);
+                        var totalMinutes = Math.round(totalTicks / 10000000 / 60);
+                        summaryEl.textContent = state.draft.length + (state.draft.length === 1 ? ' track' : ' tracks') +
+                            (totalMinutes > 0 ? ' • ~' + totalMinutes + ' min' : '');
+
+                        saveButton.disabled = state.draft.length === 0;
+                    }
+
+                    function addToDraft(track) {
+                        if (state.draft.some(function (t) { return t.Id === track.Id; })) {
+                            return;
+                        }
+                        state.draft.push(track);
+                        renderDraft();
+                        scheduleRecommendationRefresh(0);
+                    }
+
+                    function removeFromDraft(id) {
+                        state.draft = state.draft.filter(function (t) { return t.Id !== id; });
+                        renderDraft();
+                        scheduleRecommendationRefresh(0);
+                    }
+
+                    function showStatus(message, isError) {
+                        var statusEl = pageEl.querySelector('#pmkStatus');
+                        statusEl.textContent = message;
+                        statusEl.className = 'pmk-status ' + (isError ? 'pmk-statusError' : 'pmk-statusOk');
+                    }
+
+                    function runSearch(query) {
+                        var resultsEl = pageEl.querySelector('#pmkSearchResults');
+                        if (!query) {
+                            renderList(resultsEl, [], { emptyText: 'Search above, or pick a genre / artist to get started.' });
+                            return;
+                        }
+                        apiGet('PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
+                            .then(function (tracks) {
+                                renderList(resultsEl, tracks, {
+                                    remove: false,
+                                    emptyText: 'No matches found.',
+                                    onClick: addToDraft
+                                });
+                            })
+                            .catch(function (err) {
+                                renderList(resultsEl, [], { emptyText: 'Search failed: ' + (err && err.statusText ? err.statusText : 'unknown error') });
+                            });
+                    }
+
+                    function scheduleRecommendationRefresh(delay) {
+                        window.clearTimeout(state.recommendTimer);
+                        state.recommendTimer = window.setTimeout(refreshRecommendations, delay === undefined ? 250 : delay);
+                    }
+
+                    function refreshRecommendations() {
+                        var resultsEl = pageEl.querySelector('#pmkRecommendResults');
+                        var hintEl = pageEl.querySelector('#pmkRecommendHint');
+
+                        var hasSeed = state.draft.length > 0 || state.selectedGenres.size > 0 || state.selectedArtists.size > 0;
+                        hintEl.textContent = hasSeed
+                            ? 'Based on the tracks and genres/artists you’ve picked.'
+                            : 'Popular in your library. Add a track or pick a genre/artist to personalize these.';
+
+                        apiGet('PlaylistMaker/Recommendations', {
+                            userId: state.userId,
+                            seedItemIds: draftIds(),
+                            seedGenres: Array.from(state.selectedGenres),
+                            seedArtists: Array.from(state.selectedArtists),
+                            excludeItemIds: draftIds(),
+                            limit: 20
+                        }).then(function (tracks) {
+                            renderList(resultsEl, tracks, {
+                                remove: false,
+                                emptyText: 'No recommendations yet — try adding a track or picking a genre/artist.',
+                                onClick: addToDraft
+                            });
+                        }).catch(function (err) {
+                            renderList(resultsEl, [], { emptyText: 'Could not load recommendations: ' + (err && err.statusText ? err.statusText : 'unknown error') });
+                        });
+                    }
+
+                    function loadFacets() {
+                        apiGet('PlaylistMaker/Genres', { userId: state.userId }).then(function (genres) {
+                            renderChips(pageEl.querySelector('#pmkGenreChips'), 'Genres', genres || [], state.selectedGenres);
+                        }).catch(function () { /* non-fatal */ });
+
+                        apiGet('PlaylistMaker/Artists', { userId: state.userId }).then(function (artists) {
+                            renderChips(pageEl.querySelector('#pmkArtistChips'), 'Artists', artists || [], state.selectedArtists);
+                        }).catch(function () { /* non-fatal */ });
+                    }
+
+                    function savePlaylist() {
+                        var nameInput = pageEl.querySelector('#pmkPlaylistName');
+                        var publicCheckbox = pageEl.querySelector('#pmkPlaylistPublic');
+                        var saveButton = pageEl.querySelector('#pmkSaveButton');
+                        var name = nameInput.value.trim();
+
+                        if (!name) {
+                            showStatus('Give your playlist a name first.', true);
+                            return;
+                        }
+                        if (state.draft.length === 0) {
+                            showStatus('Add at least one track first.', true);
+                            return;
+                        }
+
+                        saveButton.disabled = true;
+                        apiPostJson('PlaylistMaker/Playlists', {
+                            Name: name,
+                            UserId: state.userId,
+                            ItemIds: draftIds(),
+                            Public: !!publicCheckbox.checked
+                        }).then(function () {
+                            showStatus('Saved "' + name + '" with ' + state.draft.length + ' tracks.', false);
+                        }).catch(function (err) {
+                            showStatus('Could not save playlist: ' + (err && err.statusText ? err.statusText : 'unknown error'), true);
+                        }).finally(function () {
+                            saveButton.disabled = state.draft.length === 0;
+                        });
+                    }
+
+                    function init() {
+                        state.userId = ApiClient.getCurrentUserId();
+                        state.draft = [];
+                        state.selectedGenres = new Set();
+                        state.selectedArtists = new Set();
+
+                        renderDraft();
+                        loadFacets();
+                        refreshRecommendations();
+
+                        var searchInput = pageEl.querySelector('#pmkSearchInput');
+                        searchInput.value = '';
+                        searchInput.addEventListener('input', function () {
+                            var value = searchInput.value.trim();
+                            window.clearTimeout(state.searchTimer);
+                            state.searchTimer = window.setTimeout(function () { runSearch(value); }, 300);
+                        });
+
+                        pageEl.querySelector('#pmkSaveButton').addEventListener('click', savePlaylist);
+                        pageEl.querySelector('#pmkShuffleButton').addEventListener('click', function () { refreshRecommendations(); });
+                    }
+
+                    pageEl.addEventListener('pageshow', init);
+                }());
+            </script>
         </div>
     </div>
 </div>
-<script type="text/javascript" src="playlistmaker.js"></script>
 </body>
 </html>

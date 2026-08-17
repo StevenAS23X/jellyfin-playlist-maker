@@ -1,6 +1,6 @@
 # Jellyfin Playlist Maker
 
-A Jellyfin server plugin that adds a **Playlist Maker** page to your Jellyfin sidebar —
+A Jellyfin server plugin that adds a **Playlist Maker** page under Dashboard → Plugins —
 a fast, Spotify/Apple-Music-style playlist builder for your own music library, with a
 live "Recommended For You" panel driven by genre and artist matching.
 
@@ -24,23 +24,25 @@ what's even in your library while you're picking tracks. This plugin fixes both:
 ## How it's integrated
 
 This ships as a normal Jellyfin **server plugin** (a .dll dropped into your server's
-plugin folder), not a modified web client. It registers a page that Jellyfin shows in
-the main navigation sidebar (`EnableInMainMenu`, added in Jellyfin 10.9) — right next to
-Movies, Music, etc. On servers older than 10.9 (or if your client build doesn't honor
-that flag) the page is still reachable, just from **Dashboard → Plugins → Playlist
-Maker**, which is the normal way Jellyfin plugin pages work.
+plugin folder), not a modified web client. It registers a page the standard way any
+Jellyfin plugin does, which surfaces it under **Dashboard → Plugins → Playlist Maker**.
 
-Going further — actually injecting a button into Jellyfin's built-in Music library
-view — isn't possible through the plugin API; it would require patching and
-maintaining a custom build of `jellyfin-web` that breaks on every server update. We
-deliberately avoided that (see the discussion in this repo's history) in favor of the
-sidebar page, which is safe across updates and still one click away from Music.
+Note: `PluginPageInfo.EnableInMainMenu` does *not* place a page in the main app
+navigation next to Movies/Music, despite what an earlier version of this README
+claimed — checking the actual `jellyfin-web` source, that flag only affects which of a
+plugin's registered pages its "Settings" button links to on the admin Plugins screen.
+Dashboard → Plugins is genuinely the only place a plugin page can appear without
+patching `jellyfin-web` itself. Actually injecting a button into Jellyfin's built-in
+Music library view would require exactly that — maintaining a custom `jellyfin-web`
+build (or relying on a live file-patching plugin like `FileTransformation`, which some
+servers already use for re-skinning) — both fragile across server updates, so this
+project deliberately doesn't attempt it.
 
 ## Project layout
 
 ```
 src/Jellyfin.Plugin.PlaylistMaker/
-  Plugin.cs                        Plugin entry point, registers the sidebar page
+  Plugin.cs                        Plugin entry point, registers the Dashboard page
   PluginServiceRegistrator.cs      DI registration for the recommendation service
   Configuration/
     PluginConfiguration.cs         Tunable weights (see below)
@@ -114,7 +116,7 @@ tag is pushed, and publishes/updates `manifest.json` + the built plugin zip on t
 2. Copy it into a new folder under your Jellyfin server's plugin directory, e.g.
    `<jellyfin-data>/plugins/Playlist Maker/Jellyfin.Plugin.PlaylistMaker.dll`.
 3. Restart Jellyfin.
-4. Look for **Playlist Maker** in the sidebar (or under Dashboard → Plugins).
+4. Go to **Dashboard → Plugins → Playlist Maker**.
 
 ## Releasing a new version
 

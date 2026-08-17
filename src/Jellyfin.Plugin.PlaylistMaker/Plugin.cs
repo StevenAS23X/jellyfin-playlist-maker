@@ -9,9 +9,9 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.PlaylistMaker;
 
 /// <summary>
-/// The Playlist Maker plugin entry point. Adds a "Playlist Maker" page to the Jellyfin
-/// navigation sidebar that lets users build playlists quickly, with live genre/artist
-/// based track recommendations while they build.
+/// The Playlist Maker plugin entry point. Adds a "Playlist Maker" page under Dashboard &gt;
+/// Plugins that lets users build playlists quickly, with live genre/artist based track
+/// recommendations while they build.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
@@ -53,16 +53,6 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 DisplayName = "Playlist Maker",
                 EnableInMainMenu = true,
                 MenuIcon = "queue_music"
-            },
-            new PluginPageInfo
-            {
-                Name = "playlistmaker.js",
-                EmbeddedResourcePath = string.Format("{0}.Web.playlistmaker.js", GetType().Namespace)
-            },
-            new PluginPageInfo
-            {
-                Name = "playlistmaker.css",
-                EmbeddedResourcePath = string.Format("{0}.Web.playlistmaker.css", GetType().Namespace)
             }
         };
     }
