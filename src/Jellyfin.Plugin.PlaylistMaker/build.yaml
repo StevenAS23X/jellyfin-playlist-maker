@@ -7,10 +7,18 @@ owner: "StevenAS23X"
 category: "General"
 artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
-targetAbi: "10.9.0.0"
+targetAbi: "10.11.0.0"
 framework: "net8.0"
-version: "1.0.3.0"
+version: "1.0.4.0"
 changelog: |
+  ## v1.0.4.0
+  - Fix (for real this time): every API call (Search/Genres/Artists/Recommendations) still
+    failed with a 500 TypeLoadException/MissingMethodException on Jellyfin.Data.Entities.User
+    even after v1.0.3.0. The actual cause was never a duplicate bundled assembly (the packaged
+    plugin zip only ever contained this plugin's own DLL) - it was a genuine binary
+    incompatibility from compiling against the Jellyfin.Controller 10.9.* NuGet package while
+    running on a 10.11.x server. Now compiles against Jellyfin.Controller 10.11.* to match.
+
   ## v1.0.3.0
   - Fix: every API call (Search/Genres/Artists/Recommendations) failed with a 500 error -
     TypeLoadException/MissingMethodException on Jellyfin.Data.Entities.User. `dotnet publish`

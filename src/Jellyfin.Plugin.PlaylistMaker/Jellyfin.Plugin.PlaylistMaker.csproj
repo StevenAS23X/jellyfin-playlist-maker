@@ -12,16 +12,15 @@
 
   <ItemGroup>
     <!--
-      ExcludeAssets="runtime" is load-bearing: without it, `dotnet publish` copies Jellyfin's
-      own assemblies (Jellyfin.Data.dll, MediaBrowser.Controller.dll, etc.) into this plugin's
-      output folder. The server then loads both its own copy AND this bundled copy into the
-      same process, and the CLR treats identically-named types (e.g. Jellyfin.Data.Entities.User)
-      from the two different assembly instances as unrelated types - causing
-      TypeLoadException/MissingMethodException at runtime the moment a type crosses the
-      plugin/host boundary, even though the code compiles fine. Compile-time references are
-      unaffected; only the runtime copy-to-output is excluded.
+      Must match the actual server version this plugin is deployed against. Jellyfin's plugin
+      host does not guarantee binary compatibility across minor versions: compiling against
+      10.9.* and loading into a 10.11.x server produced TypeLoadException/MissingMethodException
+      on types like Jellyfin.Data.Entities.User the moment they crossed the plugin/host boundary,
+      even though the code compiled fine. ExcludeAssets="runtime" keeps `dotnet publish` from
+      copying the host's own assemblies into this plugin's output folder (only the host's copies
+      should ever be loaded), but it can't paper over an actual ABI mismatch between versions.
     -->
-    <PackageReference Include="Jellyfin.Controller" Version="10.9.*" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.*" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
