@@ -37,6 +37,10 @@
                     }
                 }
 
+                .pmk-columns > * {
+                    min-width: 0;
+                }
+
                 .pmk-panel {
                     background: rgba(255, 255, 255, 0.04);
                     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -45,6 +49,7 @@
                     min-height: 30em;
                     display: flex;
                     flex-direction: column;
+                    min-width: 0;
                 }
 
                 .pmk-panel h2 {
@@ -83,6 +88,10 @@
                     font-size: 0.85em;
                     cursor: pointer;
                     transition: background 0.15s ease, border-color 0.15s ease;
+                    max-width: 16em;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
 
                 .pmk-chip:hover {
@@ -464,6 +473,7 @@
                             chip.type = 'button';
                             chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
                             chip.textContent = item;
+                            chip.title = item;
                             chip.addEventListener('click', function () {
                                 if (selectedSet.has(item)) {
                                     selectedSet.delete(item);

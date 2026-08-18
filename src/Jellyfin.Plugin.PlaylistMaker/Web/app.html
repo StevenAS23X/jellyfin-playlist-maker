@@ -13,6 +13,10 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            overflow-x: hidden;
+        }
+
         body {
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -20,7 +24,7 @@
             color: #eee;
         }
 
-        input, button {
+        input, button, select {
             font-family: inherit;
             font-size: 1em;
         }
@@ -81,6 +85,33 @@
             font-size: 0.9em;
         }
 
+        .pmk-loginTabs {
+            display: flex;
+            gap: 0.4em;
+            margin-bottom: 1.2em;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+            padding: 0.25em;
+        }
+
+        .pmk-loginTab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: inherit;
+            opacity: 0.6;
+            border-radius: 999px;
+            padding: 0.45em 0.5em;
+            font-size: 0.85em;
+            cursor: pointer;
+        }
+
+        .pmk-loginTab.pmk-loginTabActive {
+            background: rgba(0, 164, 220, 0.9);
+            color: #fff;
+            opacity: 1;
+        }
+
         .pmk-field {
             margin-bottom: 1em;
         }
@@ -130,6 +161,29 @@
             min-height: 1.2em;
         }
 
+        .pmk-quickConnect {
+            text-align: center;
+        }
+
+        .pmk-quickConnectCode {
+            font-size: 2.2em;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            margin: 0.6em 0;
+            color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-quickConnectHint {
+            font-size: 0.85em;
+            opacity: 0.7;
+            margin: 0 0 1em;
+        }
+
+        .pmk-quickConnectSpinner {
+            font-size: 0.8em;
+            opacity: 0.55;
+        }
+
         /* Builder app (mirrors the Dashboard-hosted page's look) */
         .pmk-app {
             max-width: 1500px;
@@ -157,6 +211,13 @@
             }
         }
 
+        /* Grid/flex items default to min-width: auto, which means a track name or a chip with
+           no natural break point (a long genre tag, a UUID-ish string) can force the whole grid
+           track - and the page - wider than the viewport instead of wrapping. Pin it back down. */
+        .pmk-columns > * {
+            min-width: 0;
+        }
+
         .pmk-panel {
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -165,6 +226,7 @@
             min-height: 30em;
             display: flex;
             flex-direction: column;
+            min-width: 0;
         }
 
         .pmk-panel h2 {
@@ -176,7 +238,7 @@
             margin-bottom: 0.8em;
         }
 
-        .pmk-searchInput, .pmk-nameInput {
+        .pmk-searchInput, .pmk-nameInput, .pmk-playlistPicker {
             width: 100%;
             padding: 0.55em 0.8em;
             border-radius: 0.4em;
@@ -185,9 +247,13 @@
             color: inherit;
         }
 
-        .pmk-searchInput:focus, .pmk-nameInput:focus {
+        .pmk-searchInput:focus, .pmk-nameInput:focus, .pmk-playlistPicker:focus {
             outline: none;
             border-color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-playlistPickerRow {
+            margin-bottom: 0.8em;
         }
 
         .pmk-chipGroup {
@@ -213,6 +279,10 @@
             font-size: 0.85em;
             cursor: pointer;
             transition: background 0.15s ease, border-color 0.15s ease;
+            max-width: 16em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .pmk-chip:hover {
@@ -242,6 +312,27 @@
 
         .pmk-trackRow:last-child {
             border-bottom: none;
+        }
+
+        .pmk-trackArt {
+            flex-shrink: 0;
+            width: 2.6em;
+            height: 2.6em;
+            border-radius: 0.35em;
+            background: rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            opacity: 0.7;
+            font-size: 1.1em;
+        }
+
+        .pmk-trackArt img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .pmk-trackInfo {
@@ -297,11 +388,53 @@
             padding: 1em 0.3em;
         }
 
+        .pmk-draftHeader {
+            display: flex;
+            align-items: center;
+            gap: 0.9em;
+            margin-bottom: 0.8em;
+        }
+
+        .pmk-coverButton {
+            flex-shrink: 0;
+            width: 4.4em;
+            height: 4.4em;
+            border-radius: 0.5em;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            color: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0;
+            font-size: 0.7em;
+            text-align: center;
+            opacity: 0.75;
+        }
+
+        .pmk-coverButton:hover {
+            border-color: rgba(0, 164, 220, 0.9);
+            color: rgba(0, 164, 220, 0.9);
+            opacity: 1;
+        }
+
+        .pmk-coverButton img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .pmk-draftHeaderMain {
+            flex: 1;
+            min-width: 0;
+        }
+
         .pmk-draftMeta {
             display: flex;
             align-items: center;
             gap: 1em;
-            margin-bottom: 0.4em;
         }
 
         .pmk-nameInput {
@@ -398,20 +531,35 @@
 <body>
 
 <div id="pmkLogin" class="pmk-loginWrap">
-    <form id="pmkLoginForm" class="pmk-loginCard">
+    <div class="pmk-loginCard">
         <h1>Playlist Maker</h1>
         <p>Sign in with your Jellyfin account to build a playlist.</p>
-        <div class="pmk-field">
-            <label for="pmkLoginUsername">Username</label>
-            <input id="pmkLoginUsername" type="text" autocomplete="username" required />
+
+        <div class="pmk-loginTabs" id="pmkLoginTabs" hidden>
+            <button type="button" class="pmk-loginTab pmk-loginTabActive" id="pmkTabPassword">Password</button>
+            <button type="button" class="pmk-loginTab" id="pmkTabQuickConnect">Quick Connect</button>
         </div>
-        <div class="pmk-field">
-            <label for="pmkLoginPassword">Password</label>
-            <input id="pmkLoginPassword" type="password" autocomplete="current-password" />
+
+        <form id="pmkLoginForm">
+            <div class="pmk-field">
+                <label for="pmkLoginUsername">Username</label>
+                <input id="pmkLoginUsername" type="text" autocomplete="username" required />
+            </div>
+            <div class="pmk-field">
+                <label for="pmkLoginPassword">Password</label>
+                <input id="pmkLoginPassword" type="password" autocomplete="current-password" />
+            </div>
+            <button id="pmkLoginButton" type="submit" class="pmk-loginButton">Sign In</button>
+        </form>
+
+        <div id="pmkQuickConnectPanel" class="pmk-quickConnect" hidden>
+            <p>Approve this request from a device you're already signed in on (Jellyfin app or web &rarr; user menu &rarr; Quick Connect), or ask an admin to approve it from Dashboard &rarr; Quick Connect.</p>
+            <div class="pmk-quickConnectCode" id="pmkQuickConnectCode">&hellip;</div>
+            <p class="pmk-quickConnectHint" id="pmkQuickConnectHint">Requesting a code&hellip;</p>
         </div>
-        <button id="pmkLoginButton" type="submit" class="pmk-loginButton">Sign In</button>
+
         <div class="pmk-loginError" id="pmkLoginError"></div>
-    </form>
+    </div>
 </div>
 
 <div id="pmkAppRoot" hidden>
@@ -449,15 +597,26 @@
             <section class="pmk-panel pmk-draft">
                 <h2>Your Playlist</h2>
 
-                <div class="pmk-draftMeta">
-                    <input id="pmkPlaylistName" type="text" placeholder="Playlist name" class="pmk-nameInput" />
-                    <label class="pmk-publicToggle">
-                        <input type="checkbox" id="pmkPlaylistPublic" />
-                        <span>Public</span>
-                    </label>
+                <div class="pmk-playlistPickerRow">
+                    <select id="pmkPlaylistPicker" class="pmk-playlistPicker">
+                        <option value="">+ New playlist</option>
+                    </select>
                 </div>
 
-                <div class="pmk-draftSummary" id="pmkDraftSummary">0 tracks</div>
+                <div class="pmk-draftHeader">
+                    <button type="button" id="pmkCoverButton" class="pmk-coverButton" title="Set playlist cover art" hidden>Add cover</button>
+                    <input type="file" id="pmkCoverInput" accept="image/*" hidden />
+                    <div class="pmk-draftHeaderMain">
+                        <div class="pmk-draftMeta">
+                            <input id="pmkPlaylistName" type="text" placeholder="Playlist name" class="pmk-nameInput" />
+                            <label class="pmk-publicToggle" id="pmkPublicToggleWrap">
+                                <input type="checkbox" id="pmkPlaylistPublic" />
+                                <span>Public</span>
+                            </label>
+                        </div>
+                        <div class="pmk-draftSummary" id="pmkDraftSummary">0 tracks</div>
+                    </div>
+                </div>
 
                 <ol class="pmk-draftList" id="pmkDraftList">
                     <li class="pmk-empty">Add tracks from Discover or Recommended to build your playlist.</li>
@@ -493,8 +652,9 @@
         var STORAGE_USER_ID = 'pmk_userId';
         var STORAGE_DEVICE_ID = 'pmk_deviceId';
         var CLIENT_NAME = 'Playlist Maker';
-        var CLIENT_VERSION = '1.0.1.0';
+        var CLIENT_VERSION = '1.0.5.0';
         var CHIP_LIMIT = 24;
+        var QUICK_CONNECT_POLL_MS = 2000;
 
         var state = {
             token: null,
@@ -503,7 +663,13 @@
             selectedGenres: new Set(),
             selectedArtists: new Set(),
             searchTimer: null,
-            recommendTimer: null
+            recommendTimer: null,
+            editingPlaylistId: null,
+            editingPlaylistImageItemId: null,
+            editingPlaylistImageVersion: null,
+            loadedEntryIdByTrackId: {},
+            quickConnectSecret: null,
+            quickConnectTimer: null
         };
 
         function getDeviceId() {
@@ -513,6 +679,11 @@
                 localStorage.setItem(STORAGE_DEVICE_ID, id);
             }
             return id;
+        }
+
+        function authHeader() {
+            return 'MediaBrowser Client="' + CLIENT_NAME + '", Device="Web Browser", DeviceId="' +
+                getDeviceId() + '", Version="' + CLIENT_VERSION + '"';
         }
 
         function buildQuery(params) {
@@ -560,6 +731,46 @@
             });
         }
 
+        function apiDelete(path, params) {
+            var url = path + buildQuery(params);
+            return fetch(url, {
+                method: 'DELETE',
+                headers: { 'X-Emby-Token': state.token }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Request failed (' + response.status + ')');
+                }
+                return response.status === 204 ? null : response.json();
+            });
+        }
+
+        function apiUploadImage(path, params, file) {
+            var url = path + buildQuery(params);
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-Emby-Token': state.token,
+                    'Content-Type': file.type || 'image/jpeg'
+                },
+                body: file
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Request failed (' + response.status + ')');
+                }
+            });
+        }
+
+        function imageUrl(itemId, cacheBust) {
+            if (!itemId) {
+                return null;
+            }
+            var url = '/Items/' + itemId + '/Images/Primary?fillWidth=100&fillHeight=100&quality=85&api_key=' + encodeURIComponent(state.token);
+            if (cacheBust) {
+                url += '&_=' + cacheBust;
+            }
+            return url;
+        }
+
         function formatDuration(ticks) {
             if (!ticks) {
                 return '';
@@ -591,9 +802,27 @@
             return parts.join(' • ');
         }
 
+        function buildTrackArt(track) {
+            var art = document.createElement('div');
+            art.className = 'pmk-trackArt';
+            var url = imageUrl(track.ImageItemId);
+            if (url) {
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = '';
+                img.loading = 'lazy';
+                art.appendChild(img);
+            } else {
+                art.textContent = '♪';
+            }
+            return art;
+        }
+
         function buildTrackRow(track, options) {
             var row = document.createElement('div');
             row.className = 'pmk-trackRow';
+
+            row.appendChild(buildTrackArt(track));
 
             var info = document.createElement('div');
             info.className = 'pmk-trackInfo';
@@ -654,6 +883,7 @@
                 chip.type = 'button';
                 chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
                 chip.textContent = item;
+                chip.title = item;
                 chip.addEventListener('click', function () {
                     if (selectedSet.has(item)) {
                         selectedSet.delete(item);
@@ -669,6 +899,25 @@
 
         function draftIds() {
             return state.draft.map(function (t) { return t.Id; });
+        }
+
+        function renderCoverButton() {
+            var button = document.getElementById('pmkCoverButton');
+            if (!state.editingPlaylistId) {
+                button.hidden = true;
+                return;
+            }
+            button.hidden = false;
+            clearChildren(button);
+            var url = imageUrl(state.editingPlaylistImageItemId, state.editingPlaylistImageVersion);
+            if (url) {
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = '';
+                button.appendChild(img);
+            } else {
+                button.textContent = 'Add cover';
+            }
         }
 
         function renderDraft() {
@@ -687,7 +936,9 @@
             summaryEl.textContent = state.draft.length + (state.draft.length === 1 ? ' track' : ' tracks') +
                 (totalMinutes > 0 ? ' • ~' + totalMinutes + ' min' : '');
 
+            saveButton.textContent = state.editingPlaylistId ? 'Update Playlist' : 'Save Playlist';
             saveButton.disabled = state.draft.length === 0;
+            renderCoverButton();
         }
 
         function addToDraft(track) {
@@ -741,7 +992,7 @@
 
             var hasSeed = state.draft.length > 0 || state.selectedGenres.size > 0 || state.selectedArtists.size > 0;
             hintEl.textContent = hasSeed
-                ? 'Based on the tracks and genres/artists you’ve picked.'
+                ? 'Based on the tracks and genres/artists you’ve picked. Anything already in your playlist is left out.'
                 : 'Popular in your library. Add a track or pick a genre/artist to personalize these.';
 
             apiGet('/PlaylistMaker/Recommendations', {
@@ -772,6 +1023,76 @@
             }).catch(function () { /* non-fatal */ });
         }
 
+        function loadPlaylistPicker(selectId) {
+            var picker = document.getElementById('pmkPlaylistPicker');
+            return apiGet('/PlaylistMaker/Playlists', { userId: state.userId }).then(function (playlists) {
+                clearChildren(picker);
+                var blank = document.createElement('option');
+                blank.value = '';
+                blank.textContent = '+ New playlist';
+                picker.appendChild(blank);
+
+                (playlists || []).forEach(function (playlist) {
+                    var option = document.createElement('option');
+                    option.value = playlist.Id;
+                    option.textContent = playlist.Name + ' (' + playlist.TrackCount + (playlist.TrackCount === 1 ? ' track)' : ' tracks)') +
+                        (playlist.CanEdit ? '' : ' — view only');
+                    option.disabled = !playlist.CanEdit;
+                    option.dataset.imageItemId = playlist.ImageItemId || '';
+                    option.dataset.name = playlist.Name;
+                    picker.appendChild(option);
+                });
+
+                if (selectId) {
+                    picker.value = selectId;
+                }
+            }).catch(function () { /* non-fatal */ });
+        }
+
+        function resetDraftForNewPlaylist() {
+            state.draft = [];
+            state.editingPlaylistId = null;
+            state.editingPlaylistImageItemId = null;
+            state.editingPlaylistImageVersion = null;
+            state.loadedEntryIdByTrackId = {};
+            document.getElementById('pmkPlaylistName').value = '';
+            document.getElementById('pmkPlaylistPublic').checked = false;
+            document.getElementById('pmkPlaylistPublic').disabled = false;
+            renderDraft();
+            scheduleRecommendationRefresh(0);
+        }
+
+        function loadPlaylistForEditing(playlistId, imageItemId, silent) {
+            if (!silent) {
+                showStatus('Loading playlist…', false);
+            }
+            return apiGet('/PlaylistMaker/Playlists/' + playlistId + '/Items', { userId: state.userId }).then(function (tracks) {
+                state.draft = tracks || [];
+                state.editingPlaylistId = playlistId;
+                state.editingPlaylistImageItemId = imageItemId || null;
+                state.editingPlaylistImageVersion = null;
+                state.loadedEntryIdByTrackId = {};
+                state.draft.forEach(function (t) {
+                    if (t.PlaylistEntryId) {
+                        state.loadedEntryIdByTrackId[t.Id] = t.PlaylistEntryId;
+                    }
+                });
+
+                var picker = document.getElementById('pmkPlaylistPicker');
+                var selectedOption = picker.options[picker.selectedIndex];
+                document.getElementById('pmkPlaylistName').value = selectedOption ? (selectedOption.dataset.name || '') : '';
+                document.getElementById('pmkPlaylistPublic').disabled = true;
+
+                renderDraft();
+                if (!silent) {
+                    showStatus('', false);
+                }
+                scheduleRecommendationRefresh(0);
+            }).catch(function () {
+                showStatus('Could not load that playlist.', true);
+            });
+        }
+
         function savePlaylist() {
             var nameInput = document.getElementById('pmkPlaylistName');
             var publicCheckbox = document.getElementById('pmkPlaylistPublic');
@@ -788,23 +1109,83 @@
             }
 
             saveButton.disabled = true;
-            apiPost('/PlaylistMaker/Playlists', {
-                Name: name,
-                UserId: state.userId,
-                ItemIds: draftIds(),
-                Public: !!publicCheckbox.checked
-            }).then(function () {
-                showStatus('Saved "' + name + '" with ' + state.draft.length + ' tracks.', false);
-            }).catch(function () {
-                showStatus('Could not save playlist.', true);
-            }).finally(function () {
-                saveButton.disabled = state.draft.length === 0;
-            });
+
+            if (state.editingPlaylistId) {
+                var currentIds = draftIds();
+                var addedIds = currentIds.filter(function (id) { return !(id in state.loadedEntryIdByTrackId); });
+                var removedEntryIds = Object.keys(state.loadedEntryIdByTrackId)
+                    .filter(function (id) { return currentIds.indexOf(id) === -1; })
+                    .map(function (id) { return state.loadedEntryIdByTrackId[id]; });
+
+                var work = [];
+                if (addedIds.length) {
+                    work.push(apiPost('/PlaylistMaker/Playlists/' + state.editingPlaylistId + '/Items', {
+                        UserId: state.userId,
+                        ItemIds: addedIds
+                    }));
+                }
+                if (removedEntryIds.length) {
+                    work.push(apiDelete('/PlaylistMaker/Playlists/' + state.editingPlaylistId + '/Items', {
+                        userId: state.userId,
+                        entryIds: removedEntryIds
+                    }));
+                }
+
+                Promise.all(work).then(function () {
+                    showStatus('Updated "' + name + '" — ' + state.draft.length + ' tracks.', false);
+                    return loadPlaylistPicker(state.editingPlaylistId).then(function () {
+                        return loadPlaylistForEditing(state.editingPlaylistId, state.editingPlaylistImageItemId, true);
+                    });
+                }).catch(function () {
+                    showStatus('Could not update playlist.', true);
+                }).finally(function () {
+                    saveButton.disabled = state.draft.length === 0;
+                });
+            } else {
+                apiPost('/PlaylistMaker/Playlists', {
+                    Name: name,
+                    UserId: state.userId,
+                    ItemIds: draftIds(),
+                    Public: !!publicCheckbox.checked
+                }).then(function (result) {
+                    showStatus('Saved "' + name + '" with ' + state.draft.length + ' tracks.', false);
+                    // Re-fetch from the server rather than assuming the draft order round-tripped
+                    // exactly, so state.loadedEntryIdByTrackId holds the real playlist entry ids -
+                    // needed to remove specific tracks later.
+                    return loadPlaylistPicker(result.Id).then(function () {
+                        return loadPlaylistForEditing(result.Id, null, true);
+                    });
+                }).catch(function () {
+                    showStatus('Could not save playlist.', true);
+                }).finally(function () {
+                    saveButton.disabled = state.draft.length === 0;
+                });
+            }
+        }
+
+        function uploadCoverArt(file) {
+            if (!state.editingPlaylistId || !file) {
+                return;
+            }
+            showStatus('Uploading cover art…', false);
+            apiUploadImage('/PlaylistMaker/Playlists/' + state.editingPlaylistId + '/Image', { userId: state.userId }, file)
+                .then(function () {
+                    state.editingPlaylistImageItemId = state.editingPlaylistId;
+                    // The upload response carries no fresh cache-busting tag, so force the <img>
+                    // to re-fetch by keying off a throwaway version param instead of the old URL.
+                    state.editingPlaylistImageVersion = Date.now();
+                    renderCoverButton();
+                    showStatus('Cover art updated.', false);
+                })
+                .catch(function () {
+                    showStatus('Could not upload cover art.', true);
+                });
         }
 
         function initBuilder() {
             renderDraft();
             loadFacets();
+            loadPlaylistPicker();
             refreshRecommendations();
 
             var searchInput = document.getElementById('pmkSearchInput');
@@ -817,6 +1198,27 @@
             document.getElementById('pmkSaveButton').addEventListener('click', savePlaylist);
             document.getElementById('pmkShuffleButton').addEventListener('click', function () { refreshRecommendations(); });
             document.getElementById('pmkLogoutButton').addEventListener('click', signOut);
+
+            document.getElementById('pmkPlaylistPicker').addEventListener('change', function (e) {
+                var picker = e.target;
+                var id = picker.value;
+                showStatus('', false);
+                if (!id) {
+                    resetDraftForNewPlaylist();
+                    return;
+                }
+                var option = picker.options[picker.selectedIndex];
+                loadPlaylistForEditing(id, option ? option.dataset.imageItemId : null);
+            });
+
+            document.getElementById('pmkCoverButton').addEventListener('click', function () {
+                document.getElementById('pmkCoverInput').click();
+            });
+            document.getElementById('pmkCoverInput').addEventListener('change', function (e) {
+                var file = e.target.files && e.target.files[0];
+                uploadCoverArt(file);
+                e.target.value = '';
+            });
         }
 
         function showBuilder() {
@@ -826,6 +1228,7 @@
         }
 
         function showLogin(message) {
+            stopQuickConnectPolling();
             document.getElementById('pmkAppRoot').hidden = true;
             document.getElementById('pmkLogin').hidden = false;
             document.getElementById('pmkLoginError').textContent = message || '';
@@ -838,15 +1241,11 @@
         }
 
         function signIn(username, password) {
-            var deviceId = getDeviceId();
-            var authHeader = 'MediaBrowser Client="' + CLIENT_NAME + '", Device="Web Browser", DeviceId="' +
-                deviceId + '", Version="' + CLIENT_VERSION + '"';
-
             return fetch('/Users/AuthenticateByName', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Emby-Authorization': authHeader
+                    'X-Emby-Authorization': authHeader()
                 },
                 body: JSON.stringify({ Username: username, Pw: password })
             }).then(function (response) {
@@ -854,14 +1253,118 @@
                     throw new Error(response.status === 401 ? 'Invalid username or password.' : 'Sign in failed.');
                 }
                 return response.json();
+            }).then(completeSignIn);
+        }
+
+        function completeSignIn(result) {
+            state.token = result.AccessToken;
+            state.userId = result.User.Id;
+            localStorage.setItem(STORAGE_TOKEN, state.token);
+            localStorage.setItem(STORAGE_USER_ID, state.userId);
+            stopQuickConnectPolling();
+            showBuilder();
+        }
+
+        function stopQuickConnectPolling() {
+            window.clearTimeout(state.quickConnectTimer);
+            state.quickConnectTimer = null;
+            state.quickConnectSecret = null;
+        }
+
+        function startQuickConnect() {
+            var codeEl = document.getElementById('pmkQuickConnectCode');
+            var hintEl = document.getElementById('pmkQuickConnectHint');
+            var errorEl = document.getElementById('pmkLoginError');
+
+            codeEl.textContent = '…';
+            hintEl.textContent = 'Requesting a code…';
+            errorEl.textContent = '';
+
+            fetch('/QuickConnect/Initiate', {
+                method: 'POST',
+                headers: { 'X-Emby-Authorization': authHeader() }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Quick Connect is not available on this server.');
+                }
+                return response.json();
             }).then(function (result) {
-                state.token = result.AccessToken;
-                state.userId = result.User.Id;
-                localStorage.setItem(STORAGE_TOKEN, state.token);
-                localStorage.setItem(STORAGE_USER_ID, state.userId);
-                showBuilder();
+                state.quickConnectSecret = result.Secret;
+                codeEl.textContent = result.Code;
+                hintEl.textContent = 'Waiting for approval…';
+                pollQuickConnect();
+            }).catch(function (err) {
+                codeEl.textContent = '—';
+                errorEl.textContent = err.message || 'Could not start Quick Connect.';
             });
         }
+
+        function pollQuickConnect() {
+            if (!state.quickConnectSecret) {
+                return;
+            }
+            var secret = state.quickConnectSecret;
+
+            fetch('/QuickConnect/Connect?secret=' + encodeURIComponent(secret))
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('expired');
+                    }
+                    return response.json();
+                })
+                .then(function (result) {
+                    if (state.quickConnectSecret !== secret) {
+                        return; // superseded by a newer request or the user navigated away
+                    }
+                    if (result.Authenticated) {
+                        return fetch('/Users/AuthenticateWithQuickConnect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ Secret: secret })
+                        }).then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Quick Connect sign-in failed.');
+                            }
+                            return response.json();
+                        }).then(completeSignIn);
+                    }
+                    state.quickConnectTimer = window.setTimeout(pollQuickConnect, QUICK_CONNECT_POLL_MS);
+                })
+                .catch(function () {
+                    if (state.quickConnectSecret !== secret) {
+                        return;
+                    }
+                    document.getElementById('pmkQuickConnectHint').textContent = 'This code expired.';
+                    document.getElementById('pmkQuickConnectCode').textContent = '—';
+                    stopQuickConnectPolling();
+                });
+        }
+
+        function setLoginTab(tab) {
+            var passwordForm = document.getElementById('pmkLoginForm');
+            var quickConnectPanel = document.getElementById('pmkQuickConnectPanel');
+            var tabPassword = document.getElementById('pmkTabPassword');
+            var tabQuickConnect = document.getElementById('pmkTabQuickConnect');
+
+            document.getElementById('pmkLoginError').textContent = '';
+
+            if (tab === 'quickconnect') {
+                passwordForm.hidden = true;
+                quickConnectPanel.hidden = false;
+                tabPassword.classList.remove('pmk-loginTabActive');
+                tabQuickConnect.classList.add('pmk-loginTabActive');
+                startQuickConnect();
+            } else {
+                stopQuickConnectPolling();
+                passwordForm.hidden = false;
+                quickConnectPanel.hidden = true;
+                tabPassword.classList.add('pmk-loginTabActive');
+                tabQuickConnect.classList.remove('pmk-loginTabActive');
+            }
+        }
+
+        document.getElementById('pmkTabPassword').addEventListener('click', function () { setLoginTab('password'); });
+        document.getElementById('pmkTabQuickConnect').addEventListener('click', function () { setLoginTab('quickconnect'); });
 
         document.getElementById('pmkLoginForm').addEventListener('submit', function (e) {
             e.preventDefault();
@@ -877,11 +1380,20 @@
             document.getElementById('pmkLoginError').textContent = '';
 
             signIn(username, password).catch(function (err) {
-                showLogin(err.message || 'Sign in failed.');
+                document.getElementById('pmkLoginError').textContent = err.message || 'Sign in failed.';
             }).finally(function () {
                 button.disabled = false;
             });
         });
+
+        // Only offer Quick Connect if the server actually has it enabled.
+        fetch('/QuickConnect/Enabled').then(function (response) {
+            return response.ok ? response.json() : false;
+        }).then(function (enabled) {
+            if (enabled) {
+                document.getElementById('pmkLoginTabs').hidden = false;
+            }
+        }).catch(function () { /* default to password-only */ });
 
         // Resume an existing session, if we have one saved.
         var savedToken = localStorage.getItem(STORAGE_TOKEN);

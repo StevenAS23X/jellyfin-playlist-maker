@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Services;
+using MediaBrowser.Controller.Entities.Audio;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Playlists;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Playlists;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -24,6 +29,7 @@ public class PlaylistMakerController : ControllerBase
 {
     private readonly IRecommendationService _recommendationService;
     private readonly IPlaylistManager _playlistManager;
+    private readonly IProviderManager _providerManager;
     private readonly ILogger<PlaylistMakerController> _logger;
 
     /// <summary>
@@ -31,14 +37,17 @@ public class PlaylistMakerController : ControllerBase
     /// </summary>
     /// <param name="recommendationService">Instance of the <see cref="IRecommendationService"/> interface.</param>
     /// <param name="playlistManager">Instance of the <see cref="IPlaylistManager"/> interface.</param>
+    /// <param name="providerManager">Instance of the <see cref="IProviderManager"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{PlaylistMakerController}"/> interface.</param>
     public PlaylistMakerController(
         IRecommendationService recommendationService,
         IPlaylistManager playlistManager,
+        IProviderManager providerManager,
         ILogger<PlaylistMakerController> logger)
     {
         _recommendationService = recommendationService;
         _playlistManager = playlistManager;
+        _providerManager = providerManager;
         _logger = logger;
     }
 
@@ -138,6 +147,140 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Gets the playlists the requesting user owns or has been shared, for the
+    /// "load an existing playlist to edit" picker.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <returns>The user's playlists.</returns>
+    [HttpGet("Playlists")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<PlaylistSummaryDto>> GetPlaylists([FromQuery] Guid userId)
+    {
+        var playlists = _playlistManager.GetPlaylists(userId)
+            .Where(p => p.PlaylistMediaType == Jellyfin.Data.Enums.MediaType.Audio || p.PlaylistMediaType == Jellyfin.Data.Enums.MediaType.Unknown)
+            .Select(p => new PlaylistSummaryDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                TrackCount = p.LinkedChildren.Length,
+                Public = p.OpenAccess,
+                CanEdit = CanEdit(p, userId),
+                ImageItemId = p.HasImage(ImageType.Primary, 0) ? p.Id : (Guid?)null
+            })
+            .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return Ok(playlists);
+    }
+
+    /// <summary>
+    /// Gets the tracks in an existing playlist, so it can be loaded into the builder for editing.
+    /// </summary>
+    /// <param name="playlistId">The playlist id.</param>
+    /// <param name="userId">The requesting user id.</param>
+    /// <returns>The playlist's tracks, in order.</returns>
+    [HttpGet("Playlists/{playlistId}/Items")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<IReadOnlyList<TrackDto>> GetPlaylistItems(
+        [FromRoute] Guid playlistId,
+        [FromQuery] Guid userId)
+    {
+        var playlist = _playlistManager.GetPlaylistForUser(playlistId, userId);
+        if (playlist is null)
+        {
+            return NotFound();
+        }
+
+        var isPermitted = playlist.OpenAccess
+            || playlist.OwnerUserId.Equals(userId)
+            || playlist.Shares.Any(s => s.UserId.Equals(userId));
+        if (!isPermitted)
+        {
+            return Forbid();
+        }
+
+        var tracks = playlist.GetManageableItems()
+            .Select(entry => new { entry.Item1, Track = entry.Item2 as Audio })
+            .Where(x => x.Track is not null)
+            .Select(x => TrackDtoMapper.ToDto(x.Track!, playlistEntryId: x.Item1.ItemId?.ToString("N")))
+            .ToList();
+
+        return Ok(tracks);
+    }
+
+    /// <summary>
+    /// Removes tracks from an existing playlist (e.g. dropped while editing).
+    /// </summary>
+    /// <param name="playlistId">The playlist id.</param>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="entryIds">The playlist entry ids to remove (from each track's <c>PlaylistEntryId</c>).</param>
+    /// <returns>No content.</returns>
+    [HttpDelete("Playlists/{playlistId}/Items")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> RemovePlaylistItems(
+        [FromRoute] Guid playlistId,
+        [FromQuery] Guid userId,
+        [FromQuery] string[] entryIds)
+    {
+        var playlist = _playlistManager.GetPlaylistForUser(playlistId, userId);
+        if (playlist is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanEdit(playlist, userId))
+        {
+            return Forbid();
+        }
+
+        await _playlistManager.RemoveItemFromPlaylistAsync(playlistId.ToString(), entryIds).ConfigureAwait(false);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Sets a playlist's cover art from an uploaded image. Jellyfin's own image endpoint requires
+    /// admin elevation for any item; this lets the playlist's own owner (or an editor) set the
+    /// image for a playlist they're allowed to manage.
+    /// </summary>
+    /// <param name="playlistId">The playlist id.</param>
+    /// <param name="userId">The requesting user id.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("Playlists/{playlistId}/Image")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> SetPlaylistImage([FromRoute] Guid playlistId, [FromQuery] Guid userId)
+    {
+        var playlist = _playlistManager.GetPlaylistForUser(playlistId, userId);
+        if (playlist is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanEdit(playlist, userId))
+        {
+            return Forbid();
+        }
+
+        var contentType = Request.ContentType;
+        if (string.IsNullOrEmpty(contentType) || !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Expected an image/* request body.");
+        }
+
+        await _providerManager.SaveImage(playlist, Request.Body, contentType, ImageType.Primary, null, CancellationToken.None)
+            .ConfigureAwait(false);
+        await playlist.UpdateToRepositoryAsync(ItemUpdateType.ImageUpdate, CancellationToken.None).ConfigureAwait(false);
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Creates a new playlist from the current draft.
     /// </summary>
     /// <param name="request">The playlist name, owner, and ordered track ids.</param>
@@ -174,5 +317,11 @@ public class PlaylistMakerController : ControllerBase
             .ConfigureAwait(false);
 
         return NoContent();
+    }
+
+    private static bool CanEdit(Playlist playlist, Guid userId)
+    {
+        return playlist.OwnerUserId.Equals(userId)
+            || playlist.Shares.Any(s => s.CanEdit && s.UserId.Equals(userId));
     }
 }

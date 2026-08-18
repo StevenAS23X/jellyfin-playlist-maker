@@ -47,4 +47,17 @@ public class TrackDto
     /// Gets or sets a value indicating why this track was recommended (e.g. "Similar artist", "Similar genre").
     /// </summary>
     public string? MatchReason { get; set; }
+
+    /// <summary>
+    /// Gets or sets the id of the item (this track, or its album) whose Primary image should be used
+    /// as cover art, or <see langword="null"/> if neither has one.
+    /// </summary>
+    public Guid? ImageItemId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the playlist entry id, when this track is returned as part of an existing
+    /// playlist's item listing. Required to remove this specific entry from that playlist, since a
+    /// playlist can contain the same track more than once.
+    /// </summary>
+    public string? PlaylistEntryId { get; set; }
 }

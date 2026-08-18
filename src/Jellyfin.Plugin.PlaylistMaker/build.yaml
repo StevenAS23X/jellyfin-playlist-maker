@@ -9,8 +9,28 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.0.4.0"
+version: "1.0.5.0"
 changelog: |
+  ## v1.0.5.0
+  - Fix: a long, unbroken genre/artist tag (e.g. bad library metadata jammed into one tag) could
+    force the whole page wider than the viewport instead of wrapping, since grid/flex items don't
+    shrink below their content's natural width by default. Chips now truncate with an ellipsis
+    (full text on hover) and the layout no longer blows out horizontally.
+  - Add Quick Connect as a sign-in option alongside username/password, for users who authenticate
+    via SSO/OAuth and have no local Jellyfin password. Only shown if Quick Connect is enabled on
+    the server.
+  - Add support for loading one of your existing playlists into the builder to edit it: add or
+    remove tracks and save changes back, instead of only ever creating new playlists.
+  - Add a cover art uploader for playlists (available once a playlist has been created or loaded
+    for editing). Jellyfin's own image endpoint is admin-only for any item; this adds an
+    owner/editor-scoped upload path instead.
+  - Add track cover art (album art, falling back to the track's own embedded art) to every track
+    row across Discover, Recommended For You, and Your Playlist.
+  - Fix: duplicate library entries of the same song (e.g. an album imported twice) could each show
+    up separately in search and recommendations, and adding one copy to a playlist wouldn't stop
+    the other copies from still being "recommended". Duplicate entries are now collapsed to one
+    per song everywhere, and excluding a track now excludes every duplicate of that same song too.
+
   ## v1.0.4.0
   - Fix (for real this time): every API call (Search/Genres/Artists/Recommendations) still
     failed with a 500 TypeLoadException/MissingMethodException on Jellyfin.Data.Entities.User

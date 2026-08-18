@@ -53,12 +53,12 @@ public class RecommendationService : IRecommendationService
             Recursive = true,
             IsVirtualItem = false,
             SearchTerm = query,
-            Limit = limit
+            Limit = limit * 3
         };
 
-        return _libraryManager.GetItemList(libraryQuery)
-            .OfType<Audio>()
-            .Select(t => ToDto(t))
+        return DedupeBySong(_libraryManager.GetItemList(libraryQuery).OfType<Audio>())
+            .Take(limit)
+            .Select(t => TrackDtoMapper.ToDto(t))
             .ToList();
     }
 
@@ -89,7 +89,7 @@ public class RecommendationService : IRecommendationService
         }
 
         return GetAllTracks(user)
-            .SelectMany(GetArtistNames)
+            .SelectMany(TrackDtoMapper.GetArtistNames)
             .Where(a => !string.IsNullOrWhiteSpace(a))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(a => a, StringComparer.OrdinalIgnoreCase)
@@ -123,6 +123,19 @@ public class RecommendationService : IRecommendationService
             excludeSet.Add(id);
         }
 
+        // Seed tracks may not be in allTracks (e.g. a track loaded from an existing playlist that
+        // GetAllTracks' current paging/ordering didn't happen to include); also exclude every other
+        // library item that's the same underlying song, so duplicate imports of an already-picked
+        // track don't keep reappearing as "recommendations".
+        var excludedSongKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in excludeSet)
+        {
+            if (tracksById.TryGetValue(id, out var excludedTrack))
+            {
+                excludedSongKeys.Add(TrackDtoMapper.SongKey(excludedTrack));
+            }
+        }
+
         var genreWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         var artistWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
@@ -148,7 +161,7 @@ public class RecommendationService : IRecommendationService
                 AddWeight(genreWeights, genre, config.GenreWeight);
             }
 
-            foreach (var artist in GetArtistNames(seedTrack))
+            foreach (var artist in TrackDtoMapper.GetArtistNames(seedTrack))
             {
                 AddWeight(artistWeights, artist, config.ArtistWeight);
             }
@@ -164,7 +177,8 @@ public class RecommendationService : IRecommendationService
             AddWeight(artistWeights, artist, config.ArtistWeight * 2);
         }
 
-        var candidates = allTracks.Where(t => !excludeSet.Contains(t.Id));
+        var candidates = allTracks.Where(t =>
+            !excludeSet.Contains(t.Id) && !excludedSongKeys.Contains(TrackDtoMapper.SongKey(t)));
 
         if (genreWeights.Count == 0 && artistWeights.Count == 0)
         {
@@ -174,7 +188,7 @@ public class RecommendationService : IRecommendationService
                 .OrderByDescending(x => x.Score)
                 .ThenByDescending(x => x.Track.DateCreated)
                 .Take(effectiveLimit)
-                .Select(x => ToDto(x.Track, "Popular in your library"))
+                .Select(x => TrackDtoMapper.ToDto(x.Track, "Popular in your library"))
                 .ToList();
         }
 
@@ -188,7 +202,7 @@ public class RecommendationService : IRecommendationService
             string? bestGenreMatch = null;
             double bestGenreWeight = 0;
 
-            foreach (var artist in GetArtistNames(track))
+            foreach (var artist in TrackDtoMapper.GetArtistNames(track))
             {
                 if (artistWeights.TryGetValue(artist, out var w))
                 {
@@ -240,7 +254,7 @@ public class RecommendationService : IRecommendationService
         return scored
             .OrderByDescending(x => x.Score)
             .Take(effectiveLimit)
-            .Select(x => ToDto(x.Track, x.Reason))
+            .Select(x => TrackDtoMapper.ToDto(x.Track, x.Reason))
             .ToList();
     }
 
@@ -253,40 +267,25 @@ public class RecommendationService : IRecommendationService
             IsVirtualItem = false
         };
 
-        return _libraryManager.GetItemList(query).OfType<Audio>();
+        return DedupeBySong(_libraryManager.GetItemList(query).OfType<Audio>());
     }
 
-    private static IEnumerable<string> GetArtistNames(Audio track)
+    /// <summary>
+    /// Collapses duplicate library entries of the same underlying song (e.g. the same album
+    /// imported twice, or a track present under two library paths) down to a single instance, so
+    /// they don't show up as repeated rows in search/recommendations and so adding one instance to
+    /// a playlist correctly excludes the others from future recommendations too.
+    /// </summary>
+    private static IEnumerable<Audio> DedupeBySong(IEnumerable<Audio> tracks)
     {
-        foreach (var artist in track.Artists ?? Array.Empty<string>())
-        {
-            yield return artist;
-        }
-
-        foreach (var artist in track.AlbumArtists ?? Array.Empty<string>())
-        {
-            yield return artist;
-        }
+        return tracks
+            .GroupBy(TrackDtoMapper.SongKey, StringComparer.Ordinal)
+            .Select(g => g.OrderByDescending(t => t.DateCreated).First());
     }
 
     private double PopularityScore(User user, Audio track)
     {
         var userData = _userDataManager.GetUserData(user, track);
         return userData?.PlayCount ?? 0;
-    }
-
-    private static TrackDto ToDto(Audio track, string? matchReason = null)
-    {
-        return new TrackDto
-        {
-            Id = track.Id,
-            Name = track.Name,
-            Album = track.AlbumEntity?.Name,
-            Artists = GetArtistNames(track).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            Genres = (track.Genres ?? Array.Empty<string>()).ToList(),
-            ProductionYear = track.ProductionYear,
-            RunTimeTicks = track.RunTimeTicks,
-            MatchReason = matchReason
-        };
     }
 }
