@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playlist Maker</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #101010;
+            color: #eee;
+        }
+
+        input, button {
+            font-family: inherit;
+            font-size: 1em;
+        }
+
+        .pmk-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1em 1.5em;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .pmk-topbar h1 {
+            font-size: 1.1em;
+            margin: 0;
+        }
+
+        .pmk-logoutButton {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: inherit;
+            border-radius: 999px;
+            padding: 0.4em 1.1em;
+            font-size: 0.85em;
+            cursor: pointer;
+        }
+
+        .pmk-logoutButton:hover {
+            border-color: rgba(0, 164, 220, 0.9);
+            color: rgba(0, 164, 220, 0.9);
+        }
+
+        /* Login screen */
+        .pmk-loginWrap {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5em;
+        }
+
+        .pmk-loginCard {
+            width: 100%;
+            max-width: 24em;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.8em;
+            padding: 2em;
+        }
+
+        .pmk-loginCard h1 {
+            margin-top: 0;
+            font-size: 1.4em;
+        }
+
+        .pmk-loginCard p {
+            opacity: 0.65;
+            font-size: 0.9em;
+        }
+
+        .pmk-field {
+            margin-bottom: 1em;
+        }
+
+        .pmk-field label {
+            display: block;
+            font-size: 0.85em;
+            opacity: 0.7;
+            margin-bottom: 0.35em;
+        }
+
+        .pmk-field input {
+            width: 100%;
+            padding: 0.6em 0.8em;
+            border-radius: 0.4em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
+        }
+
+        .pmk-field input:focus {
+            outline: none;
+            border-color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-loginButton {
+            width: 100%;
+            padding: 0.7em;
+            border-radius: 0.5em;
+            border: none;
+            background: rgba(0, 164, 220, 0.9);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 0.5em;
+        }
+
+        .pmk-loginButton:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .pmk-loginError {
+            color: #e0455b;
+            font-size: 0.85em;
+            margin-top: 0.8em;
+            min-height: 1.2em;
+        }
+
+        /* Builder app (mirrors the Dashboard-hosted page's look) */
+        .pmk-app {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 1.5em;
+        }
+
+        .pmk-subtitle {
+            opacity: 0.7;
+            max-width: 60em;
+            margin-top: 0;
+        }
+
+        .pmk-columns {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr 1.1fr;
+            gap: 1.5em;
+            align-items: start;
+            margin-top: 1.5em;
+        }
+
+        @media (max-width: 100em) {
+            .pmk-columns {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pmk-panel {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.6em;
+            padding: 1.2em;
+            min-height: 30em;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pmk-panel h2 {
+            margin-top: 0;
+            font-size: 1.1em;
+        }
+
+        .pmk-searchRow {
+            margin-bottom: 0.8em;
+        }
+
+        .pmk-searchInput, .pmk-nameInput {
+            width: 100%;
+            padding: 0.55em 0.8em;
+            border-radius: 0.4em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
+        }
+
+        .pmk-searchInput:focus, .pmk-nameInput:focus {
+            outline: none;
+            border-color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-chipGroup {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4em;
+            margin-bottom: 0.6em;
+        }
+
+        .pmk-chipLabel {
+            font-size: 0.8em;
+            opacity: 0.6;
+            margin-right: 0.3em;
+        }
+
+        .pmk-chip {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent;
+            color: inherit;
+            border-radius: 999px;
+            padding: 0.25em 0.9em;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .pmk-chip:hover {
+            border-color: rgba(0, 164, 220, 0.8);
+        }
+
+        .pmk-chip.pmk-chipActive {
+            background: rgba(0, 164, 220, 0.9);
+            border-color: rgba(0, 164, 220, 0.9);
+            color: #fff;
+        }
+
+        .pmk-results {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 42em;
+        }
+
+        .pmk-trackRow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6em;
+            padding: 0.5em 0.3em;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .pmk-trackRow:last-child {
+            border-bottom: none;
+        }
+
+        .pmk-trackInfo {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .pmk-trackName {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pmk-trackMeta {
+            font-size: 0.82em;
+            opacity: 0.65;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pmk-trackReason {
+            font-size: 0.78em;
+            color: rgba(0, 164, 220, 0.9);
+            margin-top: 0.15em;
+        }
+
+        .pmk-trackAction {
+            flex-shrink: 0;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: transparent;
+            color: inherit;
+            font-size: 0.85em;
+            padding: 0.35em 1.1em;
+            cursor: pointer;
+        }
+
+        .pmk-trackAction:hover {
+            border-color: rgba(0, 164, 220, 0.9);
+            color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-trackAction.pmk-removeAction:hover {
+            border-color: #e0455b;
+            color: #e0455b;
+        }
+
+        .pmk-empty {
+            opacity: 0.55;
+            font-size: 0.9em;
+            padding: 1em 0.3em;
+        }
+
+        .pmk-draftMeta {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+            margin-bottom: 0.4em;
+        }
+
+        .pmk-nameInput {
+            flex: 1;
+        }
+
+        .pmk-publicToggle {
+            display: flex;
+            align-items: center;
+            gap: 0.4em;
+            white-space: nowrap;
+            font-size: 0.9em;
+        }
+
+        .pmk-draftSummary {
+            font-size: 0.82em;
+            opacity: 0.65;
+            margin-bottom: 0.5em;
+        }
+
+        .pmk-draftList {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            flex: 1;
+            overflow-y: auto;
+            max-height: 34em;
+        }
+
+        .pmk-saveButton {
+            width: 100%;
+            margin-top: 1em;
+            padding: 0.7em;
+            border-radius: 0.5em;
+            border: none;
+            background: rgba(0, 164, 220, 0.9);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .pmk-saveButton:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .pmk-status {
+            margin-top: 0.6em;
+            font-size: 0.85em;
+            min-height: 1.2em;
+        }
+
+        .pmk-status.pmk-statusError {
+            color: #e0455b;
+        }
+
+        .pmk-status.pmk-statusOk {
+            color: #3fbf5f;
+        }
+
+        .pmk-recommendHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pmk-shuffleButton {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: inherit;
+            border-radius: 50%;
+            width: 2.2em;
+            height: 2.2em;
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+
+        .pmk-shuffleButton:hover {
+            border-color: rgba(0, 164, 220, 0.9);
+            color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-recommendHint {
+            font-size: 0.82em;
+            opacity: 0.65;
+            margin-top: 0.3em;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div id="pmkLogin" class="pmk-loginWrap">
+    <form id="pmkLoginForm" class="pmk-loginCard">
+        <h1>Playlist Maker</h1>
+        <p>Sign in with your Jellyfin account to build a playlist.</p>
+        <div class="pmk-field">
+            <label for="pmkLoginUsername">Username</label>
+            <input id="pmkLoginUsername" type="text" autocomplete="username" required />
+        </div>
+        <div class="pmk-field">
+            <label for="pmkLoginPassword">Password</label>
+            <input id="pmkLoginPassword" type="password" autocomplete="current-password" />
+        </div>
+        <button id="pmkLoginButton" type="submit" class="pmk-loginButton">Sign In</button>
+        <div class="pmk-loginError" id="pmkLoginError"></div>
+    </form>
+</div>
+
+<div id="pmkAppRoot" hidden>
+    <div class="pmk-topbar">
+        <h1>Playlist Maker</h1>
+        <button type="button" class="pmk-logoutButton" id="pmkLogoutButton">Sign out</button>
+    </div>
+
+    <div class="pmk-app">
+        <p class="pmk-subtitle">Search your library, pick a starting genre or artist, and build a playlist with live recommendations &mdash; just like Spotify or Apple Music.</p>
+
+        <div class="pmk-columns">
+
+            <!-- Discover / search column -->
+            <section class="pmk-panel pmk-discover">
+                <h2>Discover</h2>
+
+                <div class="pmk-searchRow">
+                    <input id="pmkSearchInput" type="text" placeholder="Search tracks, artists, albums&hellip;" class="pmk-searchInput" />
+                </div>
+
+                <div class="pmk-chipGroup" id="pmkGenreChips">
+                    <span class="pmk-chipLabel">Genres</span>
+                </div>
+                <div class="pmk-chipGroup" id="pmkArtistChips">
+                    <span class="pmk-chipLabel">Artists</span>
+                </div>
+
+                <div class="pmk-results" id="pmkSearchResults">
+                    <p class="pmk-empty">Search above, or pick a genre / artist to get started.</p>
+                </div>
+            </section>
+
+            <!-- Draft playlist column -->
+            <section class="pmk-panel pmk-draft">
+                <h2>Your Playlist</h2>
+
+                <div class="pmk-draftMeta">
+                    <input id="pmkPlaylistName" type="text" placeholder="Playlist name" class="pmk-nameInput" />
+                    <label class="pmk-publicToggle">
+                        <input type="checkbox" id="pmkPlaylistPublic" />
+                        <span>Public</span>
+                    </label>
+                </div>
+
+                <div class="pmk-draftSummary" id="pmkDraftSummary">0 tracks</div>
+
+                <ol class="pmk-draftList" id="pmkDraftList">
+                    <li class="pmk-empty">Add tracks from Discover or Recommended to build your playlist.</li>
+                </ol>
+
+                <button type="button" id="pmkSaveButton" class="pmk-saveButton" disabled>
+                    Save Playlist
+                </button>
+                <div class="pmk-status" id="pmkStatus"></div>
+            </section>
+
+            <!-- Recommendations column -->
+            <section class="pmk-panel pmk-recommend">
+                <div class="pmk-recommendHeader">
+                    <h2>Recommended For You</h2>
+                    <button type="button" id="pmkShuffleButton" class="pmk-shuffleButton" title="Refresh suggestions">&#8635;</button>
+                </div>
+                <p class="pmk-recommendHint" id="pmkRecommendHint">Popular in your library. Add a track or pick a genre/artist to personalize these.</p>
+                <div class="pmk-results" id="pmkRecommendResults">
+                    <p class="pmk-empty">Loading recommendations&hellip;</p>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        var STORAGE_TOKEN = 'pmk_token';
+        var STORAGE_USER_ID = 'pmk_userId';
+        var STORAGE_DEVICE_ID = 'pmk_deviceId';
+        var CLIENT_NAME = 'Playlist Maker';
+        var CLIENT_VERSION = '1.0.1.0';
+        var CHIP_LIMIT = 24;
+
+        var state = {
+            token: null,
+            userId: null,
+            draft: [],
+            selectedGenres: new Set(),
+            selectedArtists: new Set(),
+            searchTimer: null,
+            recommendTimer: null
+        };
+
+        function getDeviceId() {
+            var id = localStorage.getItem(STORAGE_DEVICE_ID);
+            if (!id) {
+                id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+                localStorage.setItem(STORAGE_DEVICE_ID, id);
+            }
+            return id;
+        }
+
+        function buildQuery(params) {
+            var usp = new URLSearchParams();
+            Object.keys(params || {}).forEach(function (key) {
+                var value = params[key];
+                if (value === undefined || value === null || value === '') {
+                    return;
+                }
+                if (Array.isArray(value)) {
+                    value.forEach(function (v) { usp.append(key, v); });
+                } else {
+                    usp.append(key, value);
+                }
+            });
+            var qs = usp.toString();
+            return qs ? ('?' + qs) : '';
+        }
+
+        function apiGet(path, params) {
+            var url = path + buildQuery(params);
+            return fetch(url, {
+                headers: { 'X-Emby-Token': state.token }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Request failed (' + response.status + ')');
+                }
+                return response.status === 204 ? null : response.json();
+            });
+        }
+
+        function apiPost(path, body) {
+            return fetch(path, {
+                method: 'POST',
+                headers: {
+                    'X-Emby-Token': state.token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Request failed (' + response.status + ')');
+                }
+                return response.status === 204 ? null : response.json();
+            });
+        }
+
+        function formatDuration(ticks) {
+            if (!ticks) {
+                return '';
+            }
+            var totalSeconds = Math.round(ticks / 10000000);
+            var minutes = Math.floor(totalSeconds / 60);
+            var seconds = totalSeconds % 60;
+            return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+        }
+
+        function clearChildren(el) {
+            while (el.firstChild) {
+                el.removeChild(el.firstChild);
+            }
+        }
+
+        function trackMetaText(track) {
+            var parts = [];
+            if (track.Artists && track.Artists.length) {
+                parts.push(track.Artists.join(', '));
+            }
+            if (track.Album) {
+                parts.push(track.Album);
+            }
+            var duration = formatDuration(track.RunTimeTicks);
+            if (duration) {
+                parts.push(duration);
+            }
+            return parts.join(' • ');
+        }
+
+        function buildTrackRow(track, options) {
+            var row = document.createElement('div');
+            row.className = 'pmk-trackRow';
+
+            var info = document.createElement('div');
+            info.className = 'pmk-trackInfo';
+
+            var name = document.createElement('div');
+            name.className = 'pmk-trackName';
+            name.textContent = track.Name;
+            info.appendChild(name);
+
+            var meta = document.createElement('div');
+            meta.className = 'pmk-trackMeta';
+            meta.textContent = trackMetaText(track);
+            info.appendChild(meta);
+
+            if (track.MatchReason) {
+                var reason = document.createElement('div');
+                reason.className = 'pmk-trackReason';
+                reason.textContent = track.MatchReason;
+                info.appendChild(reason);
+            }
+
+            row.appendChild(info);
+
+            var action = document.createElement('button');
+            action.type = 'button';
+            action.className = 'pmk-trackAction' + (options.remove ? ' pmk-removeAction' : '');
+            action.textContent = options.remove ? 'Remove' : 'Add';
+            action.title = options.remove ? 'Remove from playlist' : 'Add to playlist';
+            action.addEventListener('click', function () { options.onClick(track); });
+            row.appendChild(action);
+
+            return row;
+        }
+
+        function renderList(container, tracks, options) {
+            clearChildren(container);
+            if (!tracks || tracks.length === 0) {
+                var empty = document.createElement('p');
+                empty.className = 'pmk-empty';
+                empty.textContent = options.emptyText;
+                container.appendChild(empty);
+                return;
+            }
+            tracks.forEach(function (track) {
+                container.appendChild(buildTrackRow(track, options));
+            });
+        }
+
+        function renderChips(container, label, items, selectedSet) {
+            clearChildren(container);
+            var labelEl = document.createElement('span');
+            labelEl.className = 'pmk-chipLabel';
+            labelEl.textContent = label;
+            container.appendChild(labelEl);
+
+            items.slice(0, CHIP_LIMIT).forEach(function (item) {
+                var chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
+                chip.textContent = item;
+                chip.addEventListener('click', function () {
+                    if (selectedSet.has(item)) {
+                        selectedSet.delete(item);
+                    } else {
+                        selectedSet.add(item);
+                    }
+                    chip.classList.toggle('pmk-chipActive');
+                    scheduleRecommendationRefresh(0);
+                });
+                container.appendChild(chip);
+            });
+        }
+
+        function draftIds() {
+            return state.draft.map(function (t) { return t.Id; });
+        }
+
+        function renderDraft() {
+            var listEl = document.getElementById('pmkDraftList');
+            var summaryEl = document.getElementById('pmkDraftSummary');
+            var saveButton = document.getElementById('pmkSaveButton');
+
+            renderList(listEl, state.draft, {
+                remove: true,
+                emptyText: 'Add tracks from Discover or Recommended to build your playlist.',
+                onClick: function (track) { removeFromDraft(track.Id); }
+            });
+
+            var totalTicks = state.draft.reduce(function (sum, t) { return sum + (t.RunTimeTicks || 0); }, 0);
+            var totalMinutes = Math.round(totalTicks / 10000000 / 60);
+            summaryEl.textContent = state.draft.length + (state.draft.length === 1 ? ' track' : ' tracks') +
+                (totalMinutes > 0 ? ' • ~' + totalMinutes + ' min' : '');
+
+            saveButton.disabled = state.draft.length === 0;
+        }
+
+        function addToDraft(track) {
+            if (state.draft.some(function (t) { return t.Id === track.Id; })) {
+                return;
+            }
+            state.draft.push(track);
+            renderDraft();
+            scheduleRecommendationRefresh(0);
+        }
+
+        function removeFromDraft(id) {
+            state.draft = state.draft.filter(function (t) { return t.Id !== id; });
+            renderDraft();
+            scheduleRecommendationRefresh(0);
+        }
+
+        function showStatus(message, isError) {
+            var statusEl = document.getElementById('pmkStatus');
+            statusEl.textContent = message;
+            statusEl.className = 'pmk-status ' + (isError ? 'pmk-statusError' : 'pmk-statusOk');
+        }
+
+        function runSearch(query) {
+            var resultsEl = document.getElementById('pmkSearchResults');
+            if (!query) {
+                renderList(resultsEl, [], { emptyText: 'Search above, or pick a genre / artist to get started.' });
+                return;
+            }
+            apiGet('/PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
+                .then(function (tracks) {
+                    renderList(resultsEl, tracks, {
+                        remove: false,
+                        emptyText: 'No matches found.',
+                        onClick: addToDraft
+                    });
+                })
+                .catch(function () {
+                    renderList(resultsEl, [], { emptyText: 'Search failed. Try again.' });
+                });
+        }
+
+        function scheduleRecommendationRefresh(delay) {
+            window.clearTimeout(state.recommendTimer);
+            state.recommendTimer = window.setTimeout(refreshRecommendations, delay === undefined ? 250 : delay);
+        }
+
+        function refreshRecommendations() {
+            var resultsEl = document.getElementById('pmkRecommendResults');
+            var hintEl = document.getElementById('pmkRecommendHint');
+
+            var hasSeed = state.draft.length > 0 || state.selectedGenres.size > 0 || state.selectedArtists.size > 0;
+            hintEl.textContent = hasSeed
+                ? 'Based on the tracks and genres/artists you’ve picked.'
+                : 'Popular in your library. Add a track or pick a genre/artist to personalize these.';
+
+            apiGet('/PlaylistMaker/Recommendations', {
+                userId: state.userId,
+                seedItemIds: draftIds(),
+                seedGenres: Array.from(state.selectedGenres),
+                seedArtists: Array.from(state.selectedArtists),
+                excludeItemIds: draftIds(),
+                limit: 20
+            }).then(function (tracks) {
+                renderList(resultsEl, tracks, {
+                    remove: false,
+                    emptyText: 'No recommendations yet — try adding a track or picking a genre/artist.',
+                    onClick: addToDraft
+                });
+            }).catch(function () {
+                renderList(resultsEl, [], { emptyText: 'Could not load recommendations.' });
+            });
+        }
+
+        function loadFacets() {
+            apiGet('/PlaylistMaker/Genres', { userId: state.userId }).then(function (genres) {
+                renderChips(document.getElementById('pmkGenreChips'), 'Genres', genres || [], state.selectedGenres);
+            }).catch(function () { /* non-fatal */ });
+
+            apiGet('/PlaylistMaker/Artists', { userId: state.userId }).then(function (artists) {
+                renderChips(document.getElementById('pmkArtistChips'), 'Artists', artists || [], state.selectedArtists);
+            }).catch(function () { /* non-fatal */ });
+        }
+
+        function savePlaylist() {
+            var nameInput = document.getElementById('pmkPlaylistName');
+            var publicCheckbox = document.getElementById('pmkPlaylistPublic');
+            var saveButton = document.getElementById('pmkSaveButton');
+            var name = nameInput.value.trim();
+
+            if (!name) {
+                showStatus('Give your playlist a name first.', true);
+                return;
+            }
+            if (state.draft.length === 0) {
+                showStatus('Add at least one track first.', true);
+                return;
+            }
+
+            saveButton.disabled = true;
+            apiPost('/PlaylistMaker/Playlists', {
+                Name: name,
+                UserId: state.userId,
+                ItemIds: draftIds(),
+                Public: !!publicCheckbox.checked
+            }).then(function () {
+                showStatus('Saved "' + name + '" with ' + state.draft.length + ' tracks.', false);
+            }).catch(function () {
+                showStatus('Could not save playlist.', true);
+            }).finally(function () {
+                saveButton.disabled = state.draft.length === 0;
+            });
+        }
+
+        function initBuilder() {
+            renderDraft();
+            loadFacets();
+            refreshRecommendations();
+
+            var searchInput = document.getElementById('pmkSearchInput');
+            searchInput.addEventListener('input', function () {
+                var value = searchInput.value.trim();
+                window.clearTimeout(state.searchTimer);
+                state.searchTimer = window.setTimeout(function () { runSearch(value); }, 300);
+            });
+
+            document.getElementById('pmkSaveButton').addEventListener('click', savePlaylist);
+            document.getElementById('pmkShuffleButton').addEventListener('click', function () { refreshRecommendations(); });
+            document.getElementById('pmkLogoutButton').addEventListener('click', signOut);
+        }
+
+        function showBuilder() {
+            document.getElementById('pmkLogin').hidden = true;
+            document.getElementById('pmkAppRoot').hidden = false;
+            initBuilder();
+        }
+
+        function showLogin(message) {
+            document.getElementById('pmkAppRoot').hidden = true;
+            document.getElementById('pmkLogin').hidden = false;
+            document.getElementById('pmkLoginError').textContent = message || '';
+        }
+
+        function signOut() {
+            localStorage.removeItem(STORAGE_TOKEN);
+            localStorage.removeItem(STORAGE_USER_ID);
+            showLogin('');
+        }
+
+        function signIn(username, password) {
+            var deviceId = getDeviceId();
+            var authHeader = 'MediaBrowser Client="' + CLIENT_NAME + '", Device="Web Browser", DeviceId="' +
+                deviceId + '", Version="' + CLIENT_VERSION + '"';
+
+            return fetch('/Users/AuthenticateByName', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Emby-Authorization': authHeader
+                },
+                body: JSON.stringify({ Username: username, Pw: password })
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error(response.status === 401 ? 'Invalid username or password.' : 'Sign in failed.');
+                }
+                return response.json();
+            }).then(function (result) {
+                state.token = result.AccessToken;
+                state.userId = result.User.Id;
+                localStorage.setItem(STORAGE_TOKEN, state.token);
+                localStorage.setItem(STORAGE_USER_ID, state.userId);
+                showBuilder();
+            });
+        }
+
+        document.getElementById('pmkLoginForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var username = document.getElementById('pmkLoginUsername').value.trim();
+            var password = document.getElementById('pmkLoginPassword').value;
+            var button = document.getElementById('pmkLoginButton');
+
+            if (!username) {
+                return;
+            }
+
+            button.disabled = true;
+            document.getElementById('pmkLoginError').textContent = '';
+
+            signIn(username, password).catch(function (err) {
+                showLogin(err.message || 'Sign in failed.');
+            }).finally(function () {
+                button.disabled = false;
+            });
+        });
+
+        // Resume an existing session, if we have one saved.
+        var savedToken = localStorage.getItem(STORAGE_TOKEN);
+        var savedUserId = localStorage.getItem(STORAGE_USER_ID);
+        if (savedToken && savedUserId) {
+            state.token = savedToken;
+            state.userId = savedUserId;
+            showBuilder();
+        } else {
+            showLogin('');
+        }
+    }());
+</script>
+</body>
+</html>

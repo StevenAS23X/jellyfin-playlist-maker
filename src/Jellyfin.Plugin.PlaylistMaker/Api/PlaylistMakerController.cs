@@ -9,6 +9,7 @@ using MediaBrowser.Model.Playlists;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.PlaylistMaker.Api;
 
@@ -23,16 +24,46 @@ public class PlaylistMakerController : ControllerBase
 {
     private readonly IRecommendationService _recommendationService;
     private readonly IPlaylistManager _playlistManager;
+    private readonly ILogger<PlaylistMakerController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlaylistMakerController"/> class.
     /// </summary>
     /// <param name="recommendationService">Instance of the <see cref="IRecommendationService"/> interface.</param>
     /// <param name="playlistManager">Instance of the <see cref="IPlaylistManager"/> interface.</param>
-    public PlaylistMakerController(IRecommendationService recommendationService, IPlaylistManager playlistManager)
+    /// <param name="logger">Instance of the <see cref="ILogger{PlaylistMakerController}"/> interface.</param>
+    public PlaylistMakerController(
+        IRecommendationService recommendationService,
+        IPlaylistManager playlistManager,
+        ILogger<PlaylistMakerController> logger)
     {
         _recommendationService = recommendationService;
         _playlistManager = playlistManager;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Serves the standalone Playlist Maker app: a self-contained page with its own login screen,
+    /// reachable by any user (not just admins) since Jellyfin's Dashboard is admin-only.
+    /// </summary>
+    /// <returns>The app's HTML page.</returns>
+    [HttpGet("App")]
+    [AllowAnonymous]
+    public ActionResult GetApp()
+    {
+        var assembly = GetType().Assembly;
+        const string ResourceName = "Jellyfin.Plugin.PlaylistMaker.Web.app.html";
+
+        using var stream = assembly.GetManifestResourceStream(ResourceName);
+        if (stream is null)
+        {
+            _logger.LogError("Embedded resource {ResourceName} not found", ResourceName);
+            return NotFound();
+        }
+
+        using var reader = new System.IO.StreamReader(stream);
+        var html = reader.ReadToEnd();
+        return Content(html, "text/html");
     }
 
     /// <summary>
