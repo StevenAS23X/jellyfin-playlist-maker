@@ -8,7 +8,6 @@
     <AssemblyName>Jellyfin.Plugin.PlaylistMaker</AssemblyName>
     <LangVersion>latest</LangVersion>
     <WarningsAsErrors>false</WarningsAsErrors>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <ItemGroup>
