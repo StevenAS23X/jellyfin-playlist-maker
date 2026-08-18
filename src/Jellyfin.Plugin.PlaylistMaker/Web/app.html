@@ -298,6 +298,11 @@
             color: #fff;
         }
 
+        .pmk-chipToggle {
+            opacity: 0.7;
+            border-style: dashed;
+        }
+
         .pmk-results {
             flex: 1;
             overflow-y: auto;
@@ -329,6 +334,8 @@
             overflow: hidden;
             opacity: 0.7;
             font-size: 1.1em;
+            position: relative;
+            cursor: pointer;
         }
 
         .pmk-trackArt img {
@@ -336,6 +343,32 @@
             height: 100%;
             object-fit: cover;
             display: block;
+        }
+
+        .pmk-trackArtPlayIcon {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.45);
+            color: #fff;
+            font-size: 0.85em;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .pmk-trackArt:hover .pmk-trackArtPlayIcon,
+        .pmk-trackArt.pmk-trackArtPlaying .pmk-trackArtPlayIcon {
+            opacity: 1;
+        }
+
+        .pmk-trackArtPlayIcon::before {
+            content: '▶';
+        }
+
+        .pmk-trackArt.pmk-trackArtPlaying .pmk-trackArtPlayIcon::before {
+            content: '⏸';
         }
 
         .pmk-trackInfo {
@@ -655,8 +688,9 @@
         var STORAGE_USER_ID = 'pmk_userId';
         var STORAGE_DEVICE_ID = 'pmk_deviceId';
         var CLIENT_NAME = 'Playlist Maker';
-        var CLIENT_VERSION = '1.0.6.0';
+        var CLIENT_VERSION = '1.0.7.0';
         var CHIP_LIMIT = 24;
+        var CHIP_VISIBLE_DEFAULT = 10;
         var QUICK_CONNECT_POLL_MS = 2000;
 
         var state = {
@@ -673,8 +707,15 @@
             loadedEntryIdByTrackId: {},
             lastShownRecommendedIds: [],
             quickConnectSecret: null,
-            quickConnectTimer: null
+            quickConnectTimer: null,
+            playingTrackId: null
         };
+
+        var audioEl = new Audio();
+        audioEl.addEventListener('ended', function () {
+            state.playingTrackId = null;
+            updatePlaybackVisuals();
+        });
 
         function getDeviceId() {
             var id = localStorage.getItem(STORAGE_DEVICE_ID);
@@ -775,6 +816,28 @@
             return url;
         }
 
+        function audioUrl(itemId) {
+            return '/Audio/' + itemId + '/stream?static=true&api_key=' + encodeURIComponent(state.token);
+        }
+
+        function updatePlaybackVisuals() {
+            document.querySelectorAll('.pmk-trackArt').forEach(function (el) {
+                el.classList.toggle('pmk-trackArtPlaying', el.dataset.trackId === state.playingTrackId);
+            });
+        }
+
+        function togglePlayback(track) {
+            if (state.playingTrackId === track.Id) {
+                audioEl.pause();
+                state.playingTrackId = null;
+            } else {
+                audioEl.src = audioUrl(track.Id);
+                audioEl.play().catch(function () { /* blocked or unsupported format - ignore */ });
+                state.playingTrackId = track.Id;
+            }
+            updatePlaybackVisuals();
+        }
+
         function formatDuration(ticks) {
             if (!ticks) {
                 return '';
@@ -808,7 +871,10 @@
 
         function buildTrackArt(track) {
             var art = document.createElement('div');
-            art.className = 'pmk-trackArt';
+            art.className = 'pmk-trackArt' + (track.Id === state.playingTrackId ? ' pmk-trackArtPlaying' : '');
+            art.dataset.trackId = track.Id;
+            art.title = track.Id === state.playingTrackId ? 'Pause' : 'Play preview';
+
             var url = imageUrl(track.ImageItemId);
             if (url) {
                 var img = document.createElement('img');
@@ -817,8 +883,16 @@
                 img.loading = 'lazy';
                 art.appendChild(img);
             } else {
-                art.textContent = '♪';
+                var note = document.createElement('span');
+                note.textContent = '♪';
+                art.appendChild(note);
             }
+
+            var playIcon = document.createElement('span');
+            playIcon.className = 'pmk-trackArtPlayIcon';
+            art.appendChild(playIcon);
+
+            art.addEventListener('click', function () { togglePlayback(track); });
             return art;
         }
 
@@ -876,30 +950,62 @@
         }
 
         function renderChips(container, label, items, selectedSet) {
-            clearChildren(container);
-            var labelEl = document.createElement('span');
-            labelEl.className = 'pmk-chipLabel';
-            labelEl.textContent = label;
-            container.appendChild(labelEl);
+            // Collapsed to a small default set (picked items always shown) instead of dumping
+            // every genre/artist in the library as a giant wall of chips.
+            var expanded = false;
 
-            items.slice(0, CHIP_LIMIT).forEach(function (item) {
-                var chip = document.createElement('button');
-                chip.type = 'button';
-                chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
-                chip.textContent = item;
-                chip.title = item;
-                chip.addEventListener('click', function () {
-                    if (selectedSet.has(item)) {
-                        selectedSet.delete(item);
-                    } else {
-                        selectedSet.add(item);
-                    }
-                    chip.classList.toggle('pmk-chipActive');
-                    refreshDiscover();
-                    scheduleRecommendationRefresh(0);
+            function render() {
+                clearChildren(container);
+                var labelEl = document.createElement('span');
+                labelEl.className = 'pmk-chipLabel';
+                labelEl.textContent = label;
+                container.appendChild(labelEl);
+
+                var capped = items.slice(0, CHIP_LIMIT);
+                var selected = capped.filter(function (item) { return selectedSet.has(item); });
+                var unselected = capped.filter(function (item) { return !selectedSet.has(item); });
+
+                var visible;
+                if (expanded) {
+                    visible = capped;
+                } else {
+                    var remainingSlots = Math.max(CHIP_VISIBLE_DEFAULT - selected.length, 0);
+                    visible = selected.concat(unselected.slice(0, remainingSlots));
+                }
+
+                visible.forEach(function (item) {
+                    var chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
+                    chip.textContent = item;
+                    chip.title = item;
+                    chip.addEventListener('click', function () {
+                        if (selectedSet.has(item)) {
+                            selectedSet.delete(item);
+                        } else {
+                            selectedSet.add(item);
+                        }
+                        refreshDiscover();
+                        scheduleRecommendationRefresh(0);
+                        render();
+                    });
+                    container.appendChild(chip);
                 });
-                container.appendChild(chip);
-            });
+
+                if (capped.length > visible.length || expanded) {
+                    var toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.className = 'pmk-chip pmk-chipToggle';
+                    toggle.textContent = expanded ? 'Show less' : ('+' + (capped.length - visible.length) + ' more');
+                    toggle.addEventListener('click', function () {
+                        expanded = !expanded;
+                        render();
+                    });
+                    container.appendChild(toggle);
+                }
+            }
+
+            render();
         }
 
         function draftIds() {
@@ -1281,6 +1387,8 @@
         }
 
         function signOut() {
+            audioEl.pause();
+            state.playingTrackId = null;
             localStorage.removeItem(STORAGE_TOKEN);
             localStorage.removeItem(STORAGE_USER_ID);
             showLogin('');

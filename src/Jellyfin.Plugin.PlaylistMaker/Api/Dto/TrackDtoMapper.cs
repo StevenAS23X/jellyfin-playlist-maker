@@ -14,6 +14,7 @@ namespace Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 public static class TrackDtoMapper
 {
     private const string SongKeySeparator = "|";
+    private static readonly char[] GenreSeparators = { ',', ';' };
 
     /// <summary>
     /// Maps an audio track to its lightweight DTO.
@@ -30,7 +31,7 @@ public static class TrackDtoMapper
             Name = track.Name,
             Album = track.AlbumEntity?.Name,
             Artists = GetArtistNames(track).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            Genres = (track.Genres ?? Array.Empty<string>()).ToList(),
+            Genres = GetGenreNames(track).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             ProductionYear = track.ProductionYear,
             RunTimeTicks = track.RunTimeTicks,
             MatchReason = matchReason,
@@ -54,6 +55,28 @@ public static class TrackDtoMapper
         foreach (var artist in track.AlbumArtists ?? Array.Empty<string>())
         {
             yield return artist;
+        }
+    }
+
+    /// <summary>
+    /// Gets a track's genres, splitting any tag that has multiple genres jammed into one string
+    /// (a common side effect of bad NFO/scan metadata, e.g. "Rock, Folk, Live/1998") into
+    /// separate values instead of treating the whole thing as one unreadable genre.
+    /// </summary>
+    /// <param name="track">The track.</param>
+    /// <returns>The individual genre names.</returns>
+    public static IEnumerable<string> GetGenreNames(Audio track)
+    {
+        foreach (var genre in track.Genres ?? Array.Empty<string>())
+        {
+            foreach (var piece in genre.Split(GenreSeparators, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = piece.Trim();
+                if (trimmed.Length > 0)
+                {
+                    yield return trimmed;
+                }
+            }
         }
     }
 

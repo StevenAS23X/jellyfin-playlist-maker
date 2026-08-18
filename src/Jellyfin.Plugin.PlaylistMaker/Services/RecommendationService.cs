@@ -103,7 +103,7 @@ public class RecommendationService : IRecommendationService
 
         return GetAllTracks(user)
             .Where(t =>
-                (t.Genres ?? Array.Empty<string>()).Any(g => genreSet.Contains(g)) ||
+                TrackDtoMapper.GetGenreNames(t).Any(g => genreSet.Contains(g)) ||
                 TrackDtoMapper.GetArtistNames(t).Any(a => artistSet.Contains(a)))
             .OrderByDescending(t => t.DateCreated)
             .Take(limit)
@@ -121,7 +121,7 @@ public class RecommendationService : IRecommendationService
         }
 
         return GetAllTracks(user)
-            .SelectMany(t => t.Genres ?? Array.Empty<string>())
+            .SelectMany(TrackDtoMapper.GetGenreNames)
             .Where(g => !string.IsNullOrWhiteSpace(g))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
@@ -205,7 +205,7 @@ public class RecommendationService : IRecommendationService
                 continue;
             }
 
-            foreach (var genre in seedTrack.Genres ?? Array.Empty<string>())
+            foreach (var genre in TrackDtoMapper.GetGenreNames(seedTrack))
             {
                 AddWeight(genreWeights, genre, config.GenreWeight);
             }
@@ -229,13 +229,23 @@ public class RecommendationService : IRecommendationService
         var candidates = allTracks.Where(t =>
             !excludeSet.Contains(t.Id) && !excludedSongKeys.Contains(TrackDtoMapper.SongKey(t)));
 
+        // Recommendations are pulled from a pool wider than what's actually shown, then shuffled,
+        // so hitting refresh gives a genuinely different set instead of the same deterministic
+        // top-N reordering slightly by a small jitter every time.
+        var poolSize = Math.Max(effectiveLimit * 3, effectiveLimit + 20);
+
         if (genreWeights.Count == 0 && artistWeights.Count == 0)
         {
             // Cold start: no taste signal yet, surface what the user already listens to / recently added.
-            return candidates
+            var popularPool = candidates
                 .Select(t => (Track: t, Score: PopularityScore(user, t)))
                 .OrderByDescending(x => x.Score)
                 .ThenByDescending(x => x.Track.DateCreated)
+                .Take(poolSize)
+                .ToList();
+            Shuffle(popularPool);
+
+            return popularPool
                 .Take(effectiveLimit)
                 .Select(x => TrackDtoMapper.ToDto(x.Track, "Popular in your library"))
                 .ToList();
@@ -264,7 +274,7 @@ public class RecommendationService : IRecommendationService
                 }
             }
 
-            foreach (var genre in track.Genres ?? Array.Empty<string>())
+            foreach (var genre in TrackDtoMapper.GetGenreNames(track))
             {
                 if (genreWeights.TryGetValue(genre, out var w))
                 {
@@ -287,10 +297,6 @@ public class RecommendationService : IRecommendationService
                 score += PopularityScore(user, track) * 0.05;
             }
 
-            // Small jitter so repeated requests with the same seed surface some variety,
-            // the way Spotify's suggestions shuffle a little between visits.
-            score += _random.NextDouble() * 0.05;
-
             var reason = bestArtistMatch is not null
                 ? $"Because you like {bestArtistMatch}"
                 : bestGenreMatch is not null
@@ -300,11 +306,28 @@ public class RecommendationService : IRecommendationService
             scored.Add((track, score, reason));
         }
 
-        return scored
+        var scoredPool = scored
             .OrderByDescending(x => x.Score)
+            .Take(poolSize)
+            .ToList();
+        Shuffle(scoredPool);
+
+        return scoredPool
             .Take(effectiveLimit)
             .Select(x => TrackDtoMapper.ToDto(x.Track, x.Reason))
             .ToList();
+    }
+
+    /// <summary>
+    /// In-place Fisher-Yates shuffle.
+    /// </summary>
+    private void Shuffle<T>(IList<T> list)
+    {
+        for (var i = list.Count - 1; i > 0; i--)
+        {
+            var j = _random.Next(i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
     }
 
     private IEnumerable<Audio> GetAllTracks(User user)

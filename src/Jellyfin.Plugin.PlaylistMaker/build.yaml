@@ -9,8 +9,19 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.0.6.0"
+version: "1.0.7.0"
 changelog: |
+  ## v1.0.7.0
+  - Add click-to-preview: click a track's cover art anywhere (Discover, Recommended, Your
+    Playlist) to play/pause a preview, like clicking a track in Spotify.
+  - Fix: some libraries have genre tags with multiple genres jammed into one string (bad NFO/scan
+    metadata, e.g. "Rock, Folk, Live/1998"), which showed up as one long unreadable chip. Genre
+    tags are now split apart, and genre/artist chip lists are collapsed to a compact default
+    ("+N more" to expand) instead of dumping the whole library's tags as a wall of chips.
+  - Recommended For You refresh is a bigger change now: instead of a small random reorder of the
+    same deterministic top matches, it draws from a much wider pool of good candidates and
+    shuffles that pool, on top of already steering away from whatever was just shown.
+
   ## v1.0.6.0
   - Fix: search only matched a track's own name, so searching for an album title found nothing.
     Now also matches albums by name and includes their tracks.
