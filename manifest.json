@@ -3,10 +3,18 @@
         "guid": "f3b1a7f0-4b9a-4e9c-9c1e-8a2b6d5e7c11",
         "name": "Playlist Maker",
         "description": "Build playlists quickly with live genre/artist based recommendations, similar to Spotify or Apple Music.",
-        "overview": "Adds a Playlist Maker page to Jellyfin's sidebar with a fast search + drag-free playlist builder and a live 'more like this' recommendations panel driven by genre and artist matching.",
+        "overview": "Adds a Playlist Maker page under Dashboard > Plugins with a fast search + drag-free playlist builder and a live 'more like this' recommendations panel driven by genre and artist matching.",
         "owner": "StevenAS23X",
         "category": "General",
         "versions": [
+            {
+                "version": "1.0.1.0",
+                "changelog": "## v1.0.1.0\n- Fix: the page rendered completely unstyled and never loaded any data. Jellyfin's page loader\n  only keeps markup that lives inside the page's root `data-role=\"page\"` div and discards\n  everything else, so the separate playlistmaker.js/.css files were silently dropped on load.\n  Everything is now a single self-contained page (inline styles + script), matching the pattern\n  Jellyfin's own bundled plugins use.\n- Fix: track fields from the API (Name, Id, Artists, etc.) are PascalCase; the UI was reading\n  camelCase names and rendering nothing as a result.\n\n## v1.0.0.0\n- Initial release.\n- \"Playlist Maker\" page under Dashboard > Plugins: search your library, pick genre/artist chips,\n  and build a playlist.\n- Live \"Recommended For You\" panel that scores your library by genre/artist overlap with the\n  current draft.\n- Cold-start fallback surfaces popular/recently added tracks when nothing has been picked yet.\n",
+                "targetAbi": "10.9.0.0",
+                "sourceUrl": "https://StevenAS23X.github.io/jellyfin-playlist-maker/playlist-maker/playlist-maker_1.0.1.0.zip",
+                "checksum": "6df4ae365f06d25b4c1c3d59d1705165",
+                "timestamp": "2026-08-18T18:02:59Z"
+            },
             {
                 "version": "1.0.0.0",
                 "changelog": "## v1.0.0.0\n- Initial release.\n- Sidebar \"Playlist Maker\" page: search your library, pick genre/artist chips, and build a playlist.\n- Live \"Recommended For You\" panel that scores your library by genre/artist overlap with the current draft.\n- Cold-start fallback surfaces popular/recently added tracks when nothing has been picked yet.\n",
