@@ -27,7 +27,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -51,7 +51,7 @@ jobs:
             --output artifacts \
             --version "${{ steps.version.outputs.version }}" \
             --dotnet-configuration Release \
-            --dotnet-framework net8.0)
+            --dotnet-framework net9.0)
           echo "zip_path=${zip_path}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout gh-pages

@@ -83,27 +83,24 @@ src/Jellyfin.Plugin.PlaylistMaker/
 
 ## Building
 
-Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+Requires the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
 
 ```bash
 dotnet build src/Jellyfin.Plugin.PlaylistMaker/Jellyfin.Plugin.PlaylistMaker.csproj -c Release
 ```
 
-The build targets `Jellyfin.Controller` `10.9.*`. If your server runs a different
-Jellyfin version, update the `PackageReference` version in the `.csproj` to match, and
-adjust `targetAbi` in `build.yaml` / `meta.json`.
+The build targets `Jellyfin.Controller` `10.11.*` on `net9.0`, matching the Jellyfin
+10.11.x server line (Jellyfin moved its host process from .NET 8 to .NET 9 as of 10.11.0).
+If your server runs a different major Jellyfin version, update both the `TargetFramework`
+and the `PackageReference` version in the `.csproj` to match — a mismatch here doesn't
+just fail to compile, it can load fine and then throw `TypeLoadException`/
+`MissingMethodException` at runtime, since a plugin built for one host runtime is not
+binary-compatible with another. Also adjust `targetAbi`/`framework` in `build.yaml` /
+`meta.json` to match.
 
 A GitHub Actions workflow (`.github/workflows/build.yml`) builds the plugin on every
 push, so you can check the Actions tab for compile status without needing a local
 .NET install.
-
-> **Note on this PR:** the sandbox this was developed in has network egress limited to
-> a small allowlist (npm/PyPI/NuGet/GitHub) and could not reach `dot.net` or
-> Microsoft's SDK download CDN, so the code could not be compiled locally. Instead it
-> was cross-checked against the actual Jellyfin `v10.9.11` server source (cloned from
-> GitHub) for every non-obvious API — `IPlaylistManager`, `PlaylistCreationRequest`,
-> `BaseItemKind`, `MediaType`, `PluginPageInfo`, etc. — and verified compiling via the
-> CI workflow above, which is green as of the latest commit on this branch.
 
 ## Installing
 

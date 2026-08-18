@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Jellyfin.Plugin.PlaylistMaker</RootNamespace>
@@ -12,13 +12,14 @@
 
   <ItemGroup>
     <!--
-      Must match the actual server version this plugin is deployed against. Jellyfin's plugin
-      host does not guarantee binary compatibility across minor versions: compiling against
-      10.9.* and loading into a 10.11.x server produced TypeLoadException/MissingMethodException
-      on types like Jellyfin.Data.Entities.User the moment they crossed the plugin/host boundary,
-      even though the code compiled fine. ExcludeAssets="runtime" keeps `dotnet publish` from
-      copying the host's own assemblies into this plugin's output folder (only the host's copies
-      should ever be loaded), but it can't paper over an actual ABI mismatch between versions.
+      Version and TargetFramework above must match the actual server. Jellyfin 10.11.x moved its
+      host process from .NET 8 to .NET 9 (confirmed via the Jellyfin.Controller 10.11.x nuspec,
+      which only ships a net9.0 lib group) - that's the real cause of the
+      TypeLoadException/MissingMethodException on types like Jellyfin.Data.Entities.User seen
+      when this plugin was compiled for net8.0/10.9.*: the plugin DLL was being loaded into a
+      .NET 9 host process, a genuine runtime ABI break, not just a NuGet version mismatch.
+      ExcludeAssets="runtime" keeps `dotnet publish` from copying the host's own assemblies into
+      this plugin's output folder so only the host's copies are ever loaded.
     -->
     <PackageReference Include="Jellyfin.Controller" Version="10.11.*" ExcludeAssets="runtime" />
   </ItemGroup>
