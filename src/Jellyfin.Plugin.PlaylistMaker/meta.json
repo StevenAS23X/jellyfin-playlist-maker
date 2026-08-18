@@ -5,7 +5,7 @@
   "description": "Build playlists quickly with live genre/artist based recommendations, similar to Spotify or Apple Music.",
   "overview": "Adds a standalone Playlist Maker app (reachable by any user) plus an admin config page, with a fast playlist builder and a live 'more like this' recommendations panel.",
   "owner": "StevenAS23X",
-  "version": "1.0.2.0",
+  "version": "1.0.3.0",
   "targetAbi": "10.9.0.0",
   "framework": "net8.0",
   "status": "Active",

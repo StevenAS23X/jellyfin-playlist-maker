@@ -9,8 +9,17 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.9.0.0"
 framework: "net8.0"
-version: "1.0.2.0"
+version: "1.0.3.0"
 changelog: |
+  ## v1.0.3.0
+  - Fix: every API call (Search/Genres/Artists/Recommendations) failed with a 500 error -
+    TypeLoadException/MissingMethodException on Jellyfin.Data.Entities.User. `dotnet publish`
+    was copying Jellyfin's own assemblies (Jellyfin.Data.dll, MediaBrowser.Controller.dll, etc.)
+    into this plugin's own output folder. The server ended up with two different copies of those
+    assemblies loaded at once - its own, and this plugin's bundled copy - and the CLR treats
+    identically-named types from two different assembly instances as unrelated types. Excluded
+    those packages' runtime assets from the build so only the host's own copies are ever used.
+
   ## v1.0.2.0
   - Add a standalone app at /PlaylistMaker/App with its own login screen, reachable by any user
     (not just admins). Jellyfin's web client wraps its entire Dashboard section - where every
