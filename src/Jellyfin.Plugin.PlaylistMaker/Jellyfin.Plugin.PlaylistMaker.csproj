@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Web\playlistmaker.html" />
+    <EmbeddedResource Include="Web\app.html" />
   </ItemGroup>
 
 </Project>

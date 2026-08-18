@@ -9,8 +9,16 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.9.0.0"
 framework: "net8.0"
-version: "1.0.1.0"
+version: "1.0.2.0"
 changelog: |
+  ## v1.0.2.0
+  - Add a standalone app at /PlaylistMaker/App with its own login screen, reachable by any user
+    (not just admins). Jellyfin's web client wraps its entire Dashboard section - where every
+    plugin's config page lives, including this one - in an admin-only route guard, so the
+    Dashboard page could never be reached by regular users no matter what else was fixed. This
+    new page is served directly by the plugin, completely outside jellyfin-web's app shell, and
+    authenticates with a normal Jellyfin username/password.
+
   ## v1.0.1.0
   - Fix: the page rendered completely unstyled and never loaded any data. Jellyfin's page loader
     only keeps markup that lives inside the page's root `data-role="page"` div and discards

@@ -1,8 +1,9 @@
 # Jellyfin Playlist Maker
 
-A Jellyfin server plugin that adds a **Playlist Maker** page under Dashboard → Plugins —
-a fast, Spotify/Apple-Music-style playlist builder for your own music library, with a
-live "Recommended For You" panel driven by genre and artist matching.
+A Jellyfin server plugin with a standalone **Playlist Maker** app — a fast,
+Spotify/Apple-Music-style playlist builder for your own music library, with a live
+"Recommended For You" panel driven by genre and artist matching. Any user on your
+server can sign in and use it, not just admins.
 
 ## Why
 
@@ -24,36 +25,59 @@ what's even in your library while you're picking tracks. This plugin fixes both:
 ## How it's integrated
 
 This ships as a normal Jellyfin **server plugin** (a .dll dropped into your server's
-plugin folder), not a modified web client. It registers a page the standard way any
-Jellyfin plugin does, which surfaces it under **Dashboard → Plugins → Playlist Maker**.
+plugin folder), not a modified web client — but it deliberately does *not* rely on
+Jellyfin's usual plugin-page mechanism (`Dashboard → Plugins → <name>`) as the way
+users reach it, because that mechanism can't do the job:
 
-Note: `PluginPageInfo.EnableInMainMenu` does *not* place a page in the main app
-navigation next to Movies/Music, despite what an earlier version of this README
-claimed — checking the actual `jellyfin-web` source, that flag only affects which of a
-plugin's registered pages its "Settings" button links to on the admin Plugins screen.
-Dashboard → Plugins is genuinely the only place a plugin page can appear without
-patching `jellyfin-web` itself. Actually injecting a button into Jellyfin's built-in
-Music library view would require exactly that — maintaining a custom `jellyfin-web`
-build (or relying on a live file-patching plugin like `FileTransformation`, which some
-servers already use for re-skinning) — both fragile across server updates, so this
-project deliberately doesn't attempt it.
+Jellyfin's web client wraps its *entire* `/dashboard` section — where every plugin's
+config page lives, no exceptions — in a hard admin-only route guard
+(`ConnectionRequired level='admin'` in `jellyfin-web`'s source). A non-admin user who
+navigates there gets bounced away before the page even loads. There's also no
+`EnableInMainMenu`-style flag or any other stock mechanism that places a plugin page
+somewhere a regular user can reach; that's confirmed directly from the `jellyfin-web`
+source, not assumed.
+
+So the plugin instead serves its **own standalone page**, entirely outside
+`jellyfin-web`, at:
+
+```
+http://<your-server>:8096/PlaylistMaker/App
+```
+
+This page has its own small login screen (username/password, same credentials as
+normal), authenticating directly against Jellyfin's own `/Users/AuthenticateByName`
+endpoint — the same one every official Jellyfin client uses. Once signed in, the token
+is kept in the browser's local storage so it stays signed in on return visits. Because
+this page is served straight from the plugin's own controller rather than through
+`jellyfin-web`'s router, the admin-only gate never applies to it — any user with a
+Jellyfin account can use it.
+
+A `Dashboard → Plugins → Playlist Maker` page still exists too, mainly for the
+Configuration settings below (which only admins should be tuning anyway) — but the
+standalone `/PlaylistMaker/App` page is what you'd actually hand out to your users.
+
+Note: this assumes Jellyfin is served from the root of its domain/IP (the default for
+most setups). If you run Jellyfin behind a reverse proxy with a custom base path
+(`--baseurl`), the root-relative API calls this page makes (`/PlaylistMaker/...`,
+`/Users/AuthenticateByName`) would need that base path prepended — not handled yet.
 
 ## Project layout
 
 ```
 src/Jellyfin.Plugin.PlaylistMaker/
-  Plugin.cs                        Plugin entry point, registers the Dashboard page
+  Plugin.cs                        Plugin entry point, registers the Dashboard config page
   PluginServiceRegistrator.cs      DI registration for the recommendation service
   Configuration/
     PluginConfiguration.cs         Tunable weights (see below)
   Api/
-    PlaylistMakerController.cs     REST endpoints used by the builder UI
+    PlaylistMakerController.cs     REST endpoints, plus GET /PlaylistMaker/App (the standalone page)
     Dto/                           Request/response models
   Services/
     IRecommendationService.cs
     RecommendationService.cs       Genre/artist scoring + cold-start fallback
   Web/
-    playlistmaker.html/.js/.css    The builder UI (search, draft, recommendations)
+    app.html                       The standalone app: login screen + builder UI, any user
+    playlistmaker.html             The Dashboard-only admin config page
   build.yaml / meta.json           Plugin manifest metadata
 ```
 
@@ -97,6 +121,9 @@ handles install and future updates.
    ```
 3. Go to Dashboard → Plugins → Catalog, find **Playlist Maker**, install it, restart
    Jellyfin.
+4. Send your users to `http://<your-server>:8096/PlaylistMaker/App` — that's the app,
+   with its own login. (Admins can additionally find a settings page under
+   Dashboard → Plugins → Playlist Maker.)
 
 This URL is generated automatically by `.github/workflows/publish-repo.yml`, which runs
 `jprm` (the Jellyfin Plugin Repository Manager) against `build.yaml` every time a `v*`
@@ -116,7 +143,7 @@ tag is pushed, and publishes/updates `manifest.json` + the built plugin zip on t
 2. Copy it into a new folder under your Jellyfin server's plugin directory, e.g.
    `<jellyfin-data>/plugins/Playlist Maker/Jellyfin.Plugin.PlaylistMaker.dll`.
 3. Restart Jellyfin.
-4. Go to **Dashboard → Plugins → Playlist Maker**.
+4. Send your users to `http://<your-server>:8096/PlaylistMaker/App`.
 
 ## Releasing a new version
 
@@ -124,8 +151,8 @@ Bump the `version` in `src/Jellyfin.Plugin.PlaylistMaker/build.yaml` (and add a
 changelog entry there), commit, then tag and push:
 
 ```bash
-git tag v1.0.1.0
-git push origin v1.0.1.0
+git tag v1.0.2.0
+git push origin v1.0.2.0
 ```
 
 The `publish-repo` workflow builds that tag, packages it, and updates
@@ -146,10 +173,12 @@ Under Dashboard → Plugins → Playlist Maker you can tune:
 ## API
 
 All endpoints live under `/PlaylistMaker` and require a normal Jellyfin auth token
-(same as any other Jellyfin API call):
+(same as any other Jellyfin API call) — except `GET /PlaylistMaker/App`, which is
+public since it's the login page itself:
 
 | Endpoint | Purpose |
 |---|---|
+| `GET /PlaylistMaker/App` | The standalone app (login screen + builder), open to any user |
 | `GET /PlaylistMaker/Search?userId=&query=&limit=` | Free-text search across tracks/artists/albums |
 | `GET /PlaylistMaker/Genres?userId=` | Distinct genres in the library |
 | `GET /PlaylistMaker/Artists?userId=` | Distinct artists in the library |
