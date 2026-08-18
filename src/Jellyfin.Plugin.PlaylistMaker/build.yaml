@@ -9,8 +9,17 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.0.7.0"
+version: "1.0.8.0"
 changelog: |
+  ## v1.0.8.0
+  - Add a persistent "now playing" bar at the bottom of the page while a preview is playing, with
+    a seekable progress bar, play/pause, and a stop button - not just click-to-toggle on the cover.
+  - Fix: typing a genre name into search (e.g. "rock") found nothing, since search only matched
+    track and album names. It now also matches genres, the same way picking a genre chip does.
+  - Fix: secondary text (album/artist line under each track, subtitles, hints, labels) was too dim
+    to read comfortably - it relied on CSS opacity over a dark background, which crushes contrast
+    further. Replaced with a fixed lighter gray so it's actually legible.
+
   ## v1.0.7.0
   - Add click-to-preview: click a track's cover art anywhere (Discover, Recommended, Your
     Playlist) to play/pause a preview, like clicking a track in Spotify.

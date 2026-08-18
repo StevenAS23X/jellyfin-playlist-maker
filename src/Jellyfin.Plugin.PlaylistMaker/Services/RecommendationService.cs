@@ -83,7 +83,12 @@ public class RecommendationService : IRecommendationService
             albumTrackMatches = _libraryManager.GetItemList(albumTrackQuery).OfType<Audio>();
         }
 
-        return DedupeBySong(trackMatches.Concat(albumTrackMatches))
+        // Neither of the above matches by genre - someone typing "rock" expects rock tracks back,
+        // the same way picking the "Rock" chip would, not just tracks/albums literally named "rock".
+        var genreTrackMatches = GetAllTracks(user)
+            .Where(t => TrackDtoMapper.GetGenreNames(t).Any(g => g.Contains(query, StringComparison.OrdinalIgnoreCase)));
+
+        return DedupeBySong(trackMatches.Concat(albumTrackMatches).Concat(genreTrackMatches))
             .Take(limit)
             .Select(t => TrackDtoMapper.ToDto(t))
             .ToList();
