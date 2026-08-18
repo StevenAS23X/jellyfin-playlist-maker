@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Jellyfin.Data.Entities;
 using Jellyfin.Data.Enums;
+using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Configuration;
 using MediaBrowser.Controller.Entities;

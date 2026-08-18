@@ -20,8 +20,14 @@
       .NET 9 host process, a genuine runtime ABI break, not just a NuGet version mismatch.
       ExcludeAssets="runtime" keeps `dotnet publish` from copying the host's own assemblies into
       this plugin's output folder so only the host's copies are ever loaded.
+
+      As of 10.11.x the User entity also moved out of the Jellyfin.Data package into its own
+      Jellyfin.Database.Implementations package (namespace Jellyfin.Database.Implementations.Entities),
+      confirmed against the actual v10.11.11 server source - Jellyfin.Controller's own nuspec no
+      longer pulls it in transitively, so it must be referenced directly.
     -->
     <PackageReference Include="Jellyfin.Controller" Version="10.11.*" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Database.Implementations" Version="10.11.*" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
