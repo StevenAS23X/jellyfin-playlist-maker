@@ -93,6 +93,25 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Browses the library by genre/artist chips, with no free-text query.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="genres">Genres to match.</param>
+    /// <param name="artists">Artists to match.</param>
+    /// <param name="limit">Maximum number of results (default 30).</param>
+    /// <returns>Matching tracks.</returns>
+    [HttpGet("Browse")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<TrackDto>> Browse(
+        [FromQuery] Guid userId,
+        [FromQuery] string[]? genres = null,
+        [FromQuery] string[]? artists = null,
+        [FromQuery] int limit = 30)
+    {
+        return Ok(_recommendationService.Browse(userId, genres ?? Array.Empty<string>(), artists ?? Array.Empty<string>(), limit));
+    }
+
+    /// <summary>
     /// Gets the distinct genres in the user's music library, for quick-pick chips.
     /// </summary>
     /// <param name="userId">The requesting user id.</param>

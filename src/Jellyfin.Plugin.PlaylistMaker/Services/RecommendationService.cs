@@ -47,7 +47,7 @@ public class RecommendationService : IRecommendationService
             return Array.Empty<TrackDto>();
         }
 
-        var libraryQuery = new InternalItemsQuery(user)
+        var trackQuery = new InternalItemsQuery(user)
         {
             IncludeItemTypes = new[] { BaseItemKind.Audio },
             Recursive = true,
@@ -55,8 +55,57 @@ public class RecommendationService : IRecommendationService
             SearchTerm = query,
             Limit = limit * 3
         };
+        var trackMatches = _libraryManager.GetItemList(trackQuery).OfType<Audio>();
 
-        return DedupeBySong(_libraryManager.GetItemList(libraryQuery).OfType<Audio>())
+        // SearchTerm against Audio items only matches the track's own name, not its album's -
+        // separately match albums by name and pull in their tracks too, so searching "Abbey Road"
+        // actually finds the album's songs instead of nothing.
+        var albumQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicAlbum },
+            Recursive = true,
+            IsVirtualItem = false,
+            SearchTerm = query,
+            Limit = 5
+        };
+        var albumIds = _libraryManager.GetItemList(albumQuery).Select(a => a.Id).ToArray();
+
+        IEnumerable<Audio> albumTrackMatches = Array.Empty<Audio>();
+        if (albumIds.Length > 0)
+        {
+            var albumTrackQuery = new InternalItemsQuery(user)
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Audio },
+                Recursive = true,
+                IsVirtualItem = false,
+                AlbumIds = albumIds
+            };
+            albumTrackMatches = _libraryManager.GetItemList(albumTrackQuery).OfType<Audio>();
+        }
+
+        return DedupeBySong(trackMatches.Concat(albumTrackMatches))
+            .Take(limit)
+            .Select(t => TrackDtoMapper.ToDto(t))
+            .ToList();
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<TrackDto> Browse(Guid userId, IReadOnlyList<string> genres, IReadOnlyList<string> artists, int limit)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null || (genres.Count == 0 && artists.Count == 0))
+        {
+            return Array.Empty<TrackDto>();
+        }
+
+        var genreSet = new HashSet<string>(genres, StringComparer.OrdinalIgnoreCase);
+        var artistSet = new HashSet<string>(artists, StringComparer.OrdinalIgnoreCase);
+
+        return GetAllTracks(user)
+            .Where(t =>
+                (t.Genres ?? Array.Empty<string>()).Any(g => genreSet.Contains(g)) ||
+                TrackDtoMapper.GetArtistNames(t).Any(a => artistSet.Contains(a)))
+            .OrderByDescending(t => t.DateCreated)
             .Take(limit)
             .Select(t => TrackDtoMapper.ToDto(t))
             .ToList();

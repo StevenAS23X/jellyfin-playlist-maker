@@ -9,8 +9,24 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.0.5.0"
+version: "1.0.6.0"
 changelog: |
+  ## v1.0.6.0
+  - Fix: search only matched a track's own name, so searching for an album title found nothing.
+    Now also matches albums by name and includes their tracks.
+  - Fix: picking a genre/artist chip only ever affected Recommended For You - Discover itself
+    never changed, even though the empty-state text told you to "pick a genre / artist to get
+    started." Chips now browse Discover directly when the search box is empty.
+  - Fix: refreshing Recommended For You tended to show mostly the same tracks, since scoring is
+    deterministic and only had a small random jitter. Refreshing now steers away from whatever was
+    just shown (falling back to the normal results if that leaves too few candidates), so hitting
+    refresh actually surfaces different tracks.
+  - Quick Connect is now the default tab on sign-in when the server has it enabled, rather than
+    requiring an extra click past the password form.
+  - Colors and font now match Jellyfin's own default dark theme exactly (background/card colors,
+    accent blue, Noto Sans, button corner radius), pulled directly from jellyfin-web's theme
+    source rather than approximated.
+
   ## v1.0.5.0
   - Fix: a long, unbroken genre/artist tag (e.g. bad library metadata jammed into one tag) could
     force the whole page wider than the viewport instead of wrapping, since grid/flex items don't

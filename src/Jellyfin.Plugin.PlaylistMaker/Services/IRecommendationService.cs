@@ -19,6 +19,17 @@ public interface IRecommendationService
     IReadOnlyList<TrackDto> Search(Guid userId, string query, int limit);
 
     /// <summary>
+    /// Browses the user's music library by genre and/or artist, with no free-text query - used
+    /// when a genre/artist chip is picked directly instead of typed search.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="genres">Genres to match (a track matching any is included).</param>
+    /// <param name="artists">Artists to match (a track matching any is included).</param>
+    /// <param name="limit">Maximum number of results.</param>
+    /// <returns>Matching tracks.</returns>
+    IReadOnlyList<TrackDto> Browse(Guid userId, IReadOnlyList<string> genres, IReadOnlyList<string> artists, int limit);
+
+    /// <summary>
     /// Gets the distinct genres present in the user's music library.
     /// </summary>
     /// <param name="userId">The requesting user id.</param>

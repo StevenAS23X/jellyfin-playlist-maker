@@ -17,9 +17,14 @@
             overflow-x: hidden;
         }
 
+        /* Colors and font match Jellyfin's own default dark theme (jellyfin-web's
+           src/themes/defaults.ts: background.default #101010, background.paper #202020,
+           primary #00a4dc, typography "Noto Sans") so this page reads as part of the same app
+           rather than a bolted-on tool, even though it can't literally share jellyfin-web's
+           bundled MUI stylesheet (different framework, generated class names). */
         body {
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: #101010;
             color: #eee;
         }
@@ -44,9 +49,9 @@
 
         .pmk-logoutButton {
             background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             color: inherit;
-            border-radius: 999px;
+            border-radius: 0.25em;
             padding: 0.4em 1.1em;
             font-size: 0.85em;
             cursor: pointer;
@@ -69,9 +74,8 @@
         .pmk-loginCard {
             width: 100%;
             max-width: 24em;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 0.8em;
+            background: #202020;
+            border-radius: 0.4em;
             padding: 2em;
         }
 
@@ -140,9 +144,9 @@
         .pmk-loginButton {
             width: 100%;
             padding: 0.7em;
-            border-radius: 0.5em;
+            border-radius: 0.25em;
             border: none;
-            background: rgba(0, 164, 220, 0.9);
+            background: #00a4dc;
             color: #fff;
             font-weight: 600;
             cursor: pointer;
@@ -219,9 +223,8 @@
         }
 
         .pmk-panel {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 0.6em;
+            background: #202020;
+            border-radius: 0.4em;
             padding: 1.2em;
             min-height: 30em;
             display: flex;
@@ -363,7 +366,7 @@
 
         .pmk-trackAction {
             flex-shrink: 0;
-            border-radius: 999px;
+            border-radius: 0.25em;
             border: 1px solid rgba(255, 255, 255, 0.35);
             background: transparent;
             color: inherit;
@@ -468,9 +471,9 @@
             width: 100%;
             margin-top: 1em;
             padding: 0.7em;
-            border-radius: 0.5em;
+            border-radius: 0.25em;
             border: none;
-            background: rgba(0, 164, 220, 0.9);
+            background: #00a4dc;
             color: #fff;
             font-weight: 600;
             cursor: pointer;
@@ -652,7 +655,7 @@
         var STORAGE_USER_ID = 'pmk_userId';
         var STORAGE_DEVICE_ID = 'pmk_deviceId';
         var CLIENT_NAME = 'Playlist Maker';
-        var CLIENT_VERSION = '1.0.5.0';
+        var CLIENT_VERSION = '1.0.6.0';
         var CHIP_LIMIT = 24;
         var QUICK_CONNECT_POLL_MS = 2000;
 
@@ -668,6 +671,7 @@
             editingPlaylistImageItemId: null,
             editingPlaylistImageVersion: null,
             loadedEntryIdByTrackId: {},
+            lastShownRecommendedIds: [],
             quickConnectSecret: null,
             quickConnectTimer: null
         };
@@ -891,6 +895,7 @@
                         selectedSet.add(item);
                     }
                     chip.classList.toggle('pmk-chipActive');
+                    refreshDiscover();
                     scheduleRecommendationRefresh(0);
                 });
                 container.appendChild(chip);
@@ -962,23 +967,47 @@
             statusEl.className = 'pmk-status ' + (isError ? 'pmk-statusError' : 'pmk-statusOk');
         }
 
-        function runSearch(query) {
+        function refreshDiscover() {
             var resultsEl = document.getElementById('pmkSearchResults');
-            if (!query) {
+            var query = document.getElementById('pmkSearchInput').value.trim();
+
+            if (query) {
+                apiGet('/PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
+                    .then(function (tracks) {
+                        renderList(resultsEl, tracks, {
+                            remove: false,
+                            emptyText: 'No matches found.',
+                            onClick: addToDraft
+                        });
+                    })
+                    .catch(function () {
+                        renderList(resultsEl, [], { emptyText: 'Search failed. Try again.' });
+                    });
+                return;
+            }
+
+            // No typed query: fall back to browsing by whichever genre/artist chips are picked,
+            // so picking a chip actually does something here (it previously only fed
+            // Recommended For You, leaving Discover untouched).
+            if (state.selectedGenres.size === 0 && state.selectedArtists.size === 0) {
                 renderList(resultsEl, [], { emptyText: 'Search above, or pick a genre / artist to get started.' });
                 return;
             }
-            apiGet('/PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
-                .then(function (tracks) {
-                    renderList(resultsEl, tracks, {
-                        remove: false,
-                        emptyText: 'No matches found.',
-                        onClick: addToDraft
-                    });
-                })
-                .catch(function () {
-                    renderList(resultsEl, [], { emptyText: 'Search failed. Try again.' });
+
+            apiGet('/PlaylistMaker/Browse', {
+                userId: state.userId,
+                genres: Array.from(state.selectedGenres),
+                artists: Array.from(state.selectedArtists),
+                limit: 40
+            }).then(function (tracks) {
+                renderList(resultsEl, tracks, {
+                    remove: false,
+                    emptyText: 'No tracks found for that pick.',
+                    onClick: addToDraft
                 });
+            }).catch(function () {
+                renderList(resultsEl, [], { emptyText: 'Could not load tracks.' });
+            });
         }
 
         function scheduleRecommendationRefresh(delay) {
@@ -995,14 +1024,32 @@
                 ? 'Based on the tracks and genres/artists you’ve picked. Anything already in your playlist is left out.'
                 : 'Popular in your library. Add a track or pick a genre/artist to personalize these.';
 
-            apiGet('/PlaylistMaker/Recommendations', {
-                userId: state.userId,
-                seedItemIds: draftIds(),
-                seedGenres: Array.from(state.selectedGenres),
-                seedArtists: Array.from(state.selectedArtists),
-                excludeItemIds: draftIds(),
-                limit: 20
+            var hardExcludes = draftIds();
+            // Also steer away from whatever was just shown, so hitting refresh actually surfaces
+            // different tracks instead of the same top-scored handful every time.
+            var recentIds = (state.lastShownRecommendedIds || [])
+                .filter(function (id) { return hardExcludes.indexOf(id) === -1; });
+
+            function fetchRecs(excludeIds) {
+                return apiGet('/PlaylistMaker/Recommendations', {
+                    userId: state.userId,
+                    seedItemIds: draftIds(),
+                    seedGenres: Array.from(state.selectedGenres),
+                    seedArtists: Array.from(state.selectedArtists),
+                    excludeItemIds: excludeIds,
+                    limit: 20
+                });
+            }
+
+            fetchRecs(hardExcludes.concat(recentIds)).then(function (tracks) {
+                if ((!tracks || tracks.length < 8) && recentIds.length) {
+                    // Too few fresh candidates left outside what was just shown - fall back to
+                    // the normal exclusion set so the panel doesn't go sparse just for variety's sake.
+                    return fetchRecs(hardExcludes);
+                }
+                return tracks;
             }).then(function (tracks) {
+                state.lastShownRecommendedIds = (tracks || []).map(function (t) { return t.Id; });
                 renderList(resultsEl, tracks, {
                     remove: false,
                     emptyText: 'No recommendations yet — try adding a track or picking a genre/artist.',
@@ -1190,9 +1237,8 @@
 
             var searchInput = document.getElementById('pmkSearchInput');
             searchInput.addEventListener('input', function () {
-                var value = searchInput.value.trim();
                 window.clearTimeout(state.searchTimer);
-                state.searchTimer = window.setTimeout(function () { runSearch(value); }, 300);
+                state.searchTimer = window.setTimeout(refreshDiscover, 300);
             });
 
             document.getElementById('pmkSaveButton').addEventListener('click', savePlaylist);
@@ -1386,12 +1432,14 @@
             });
         });
 
-        // Only offer Quick Connect if the server actually has it enabled.
+        // Only offer Quick Connect if the server actually has it enabled - and default to it,
+        // since most users setting this page up have no local password (SSO/OAuth only).
         fetch('/QuickConnect/Enabled').then(function (response) {
             return response.ok ? response.json() : false;
         }).then(function (enabled) {
             if (enabled) {
                 document.getElementById('pmkLoginTabs').hidden = false;
+                setLoginTab('quickconnect');
             }
         }).catch(function () { /* default to password-only */ });
 
