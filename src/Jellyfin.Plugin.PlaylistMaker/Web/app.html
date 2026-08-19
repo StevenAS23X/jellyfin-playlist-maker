@@ -244,7 +244,7 @@
             margin-bottom: 0.8em;
         }
 
-        .pmk-searchInput, .pmk-nameInput, .pmk-playlistPicker {
+        .pmk-searchInput, .pmk-nameInput {
             width: 100%;
             padding: 0.55em 0.8em;
             border-radius: 0.4em;
@@ -253,13 +253,90 @@
             color: inherit;
         }
 
-        .pmk-searchInput:focus, .pmk-nameInput:focus, .pmk-playlistPicker:focus {
+        .pmk-searchInput:focus, .pmk-nameInput:focus {
             outline: none;
             border-color: rgba(0, 164, 220, 0.9);
         }
 
         .pmk-playlistPickerRow {
             margin-bottom: 0.8em;
+            position: relative;
+        }
+
+        /* Native <select> dropdown popups are rendered by the browser/OS, not the page, so our
+           dark theme can't reliably reach them across browsers - this is a custom-built dropdown
+           instead so the open list actually matches the rest of the app. */
+        .pmk-playlistPicker {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5em;
+            padding: 0.55em 0.8em;
+            border-radius: 0.4em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .pmk-playlistPicker:focus {
+            outline: none;
+            border-color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-playlistPickerLabel {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pmk-playlistPickerCaret {
+            flex-shrink: 0;
+            color: #b3b3b3;
+            font-size: 0.8em;
+        }
+
+        .pmk-playlistMenu {
+            position: absolute;
+            top: calc(100% + 0.3em);
+            left: 0;
+            right: 0;
+            max-height: 20em;
+            overflow-y: auto;
+            background: #262626;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.4em;
+            padding: 0.3em;
+            box-shadow: 0 0.5em 1.2em rgba(0, 0, 0, 0.5);
+            z-index: 20;
+        }
+
+        .pmk-playlistMenuItem {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.5em 0.7em;
+            border: none;
+            border-radius: 0.3em;
+            background: transparent;
+            color: inherit;
+            font-size: 0.95em;
+            cursor: pointer;
+        }
+
+        .pmk-playlistMenuItem:hover:not(:disabled) {
+            background: rgba(0, 164, 220, 0.2);
+        }
+
+        .pmk-playlistMenuItem.pmk-playlistMenuItemActive {
+            background: rgba(0, 164, 220, 0.35);
+        }
+
+        .pmk-playlistMenuItem:disabled {
+            color: #888;
+            cursor: default;
         }
 
         .pmk-chipGroup {
@@ -724,9 +801,11 @@
                 <h2>Your Playlist</h2>
 
                 <div class="pmk-playlistPickerRow">
-                    <select id="pmkPlaylistPicker" class="pmk-playlistPicker">
-                        <option value="">+ New playlist</option>
-                    </select>
+                    <button type="button" id="pmkPlaylistPicker" class="pmk-playlistPicker" aria-haspopup="listbox">
+                        <span class="pmk-playlistPickerLabel" id="pmkPlaylistPickerLabel">+ New playlist</span>
+                        <span class="pmk-playlistPickerCaret">&#9662;</span>
+                    </button>
+                    <div id="pmkPlaylistMenu" class="pmk-playlistMenu" role="listbox" hidden></div>
                 </div>
 
                 <div class="pmk-draftHeader">
@@ -790,7 +869,7 @@
         var STORAGE_USER_ID = 'pmk_userId';
         var STORAGE_DEVICE_ID = 'pmk_deviceId';
         var CLIENT_NAME = 'Playlist Maker';
-        var CLIENT_VERSION = '1.0.8.0';
+        var CLIENT_VERSION = '1.0.9.0';
         var CHIP_LIMIT = 24;
         var CHIP_VISIBLE_DEFAULT = 10;
         var QUICK_CONNECT_POLL_MS = 2000;
@@ -811,7 +890,9 @@
             quickConnectSecret: null,
             quickConnectTimer: null,
             playingTrackId: null,
-            playingTrack: null
+            playingTrack: null,
+            playlistOptions: [],
+            selectedPlaylistId: ''
         };
 
         var audioEl = new Audio();
@@ -1390,29 +1471,78 @@
             }).catch(function () { /* non-fatal */ });
         }
 
+        function playlistLabel(option) {
+            return option.name + ' (' + option.trackCount + (option.trackCount === 1 ? ' track)' : ' tracks)');
+        }
+
+        function updatePlaylistPickerLabel() {
+            var label = document.getElementById('pmkPlaylistPickerLabel');
+            var option = getSelectedPlaylistOption();
+            label.textContent = option ? playlistLabel(option) : '+ New playlist';
+        }
+
+        function getSelectedPlaylistOption() {
+            return (state.playlistOptions || []).filter(function (o) { return o.id === state.selectedPlaylistId; })[0];
+        }
+
+        function closePlaylistMenu() {
+            document.getElementById('pmkPlaylistMenu').hidden = true;
+        }
+
+        function renderPlaylistMenu() {
+            var menu = document.getElementById('pmkPlaylistMenu');
+            clearChildren(menu);
+
+            var newItem = document.createElement('button');
+            newItem.type = 'button';
+            newItem.className = 'pmk-playlistMenuItem' + (state.selectedPlaylistId ? '' : ' pmk-playlistMenuItemActive');
+            newItem.textContent = '+ New playlist';
+            newItem.addEventListener('click', function () { selectPlaylist(''); });
+            menu.appendChild(newItem);
+
+            (state.playlistOptions || []).forEach(function (option) {
+                var item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'pmk-playlistMenuItem' + (state.selectedPlaylistId === option.id ? ' pmk-playlistMenuItemActive' : '');
+                item.textContent = playlistLabel(option) + (option.canEdit ? '' : ' — view only');
+                item.disabled = !option.canEdit;
+                item.addEventListener('click', function () { selectPlaylist(option.id); });
+                menu.appendChild(item);
+            });
+        }
+
+        function selectPlaylist(id) {
+            closePlaylistMenu();
+            state.selectedPlaylistId = id;
+            renderPlaylistMenu();
+            updatePlaylistPickerLabel();
+            showStatus('', false);
+
+            if (!id) {
+                resetDraftForNewPlaylist();
+                return;
+            }
+
+            var option = getSelectedPlaylistOption();
+            loadPlaylistForEditing(id, option ? option.imageItemId : null);
+        }
+
         function loadPlaylistPicker(selectId) {
-            var picker = document.getElementById('pmkPlaylistPicker');
             return apiGet('/PlaylistMaker/Playlists', { userId: state.userId }).then(function (playlists) {
-                clearChildren(picker);
-                var blank = document.createElement('option');
-                blank.value = '';
-                blank.textContent = '+ New playlist';
-                picker.appendChild(blank);
-
-                (playlists || []).forEach(function (playlist) {
-                    var option = document.createElement('option');
-                    option.value = playlist.Id;
-                    option.textContent = playlist.Name + ' (' + playlist.TrackCount + (playlist.TrackCount === 1 ? ' track)' : ' tracks)') +
-                        (playlist.CanEdit ? '' : ' — view only');
-                    option.disabled = !playlist.CanEdit;
-                    option.dataset.imageItemId = playlist.ImageItemId || '';
-                    option.dataset.name = playlist.Name;
-                    picker.appendChild(option);
+                state.playlistOptions = (playlists || []).map(function (playlist) {
+                    return {
+                        id: playlist.Id,
+                        name: playlist.Name,
+                        trackCount: playlist.TrackCount,
+                        canEdit: playlist.CanEdit,
+                        imageItemId: playlist.ImageItemId || ''
+                    };
                 });
-
                 if (selectId) {
-                    picker.value = selectId;
+                    state.selectedPlaylistId = selectId;
                 }
+                renderPlaylistMenu();
+                updatePlaylistPickerLabel();
             }).catch(function () { /* non-fatal */ });
         }
 
@@ -1445,9 +1575,8 @@
                     }
                 });
 
-                var picker = document.getElementById('pmkPlaylistPicker');
-                var selectedOption = picker.options[picker.selectedIndex];
-                document.getElementById('pmkPlaylistName').value = selectedOption ? (selectedOption.dataset.name || '') : '';
+                var selectedOption = getSelectedPlaylistOption();
+                document.getElementById('pmkPlaylistName').value = selectedOption ? (selectedOption.name || '') : '';
                 document.getElementById('pmkPlaylistPublic').disabled = true;
 
                 renderDraft();
@@ -1565,16 +1694,19 @@
             document.getElementById('pmkShuffleButton').addEventListener('click', function () { refreshRecommendations(); });
             document.getElementById('pmkLogoutButton').addEventListener('click', signOut);
 
-            document.getElementById('pmkPlaylistPicker').addEventListener('change', function (e) {
-                var picker = e.target;
-                var id = picker.value;
-                showStatus('', false);
-                if (!id) {
-                    resetDraftForNewPlaylist();
-                    return;
+            document.getElementById('pmkPlaylistPicker').addEventListener('click', function (e) {
+                e.stopPropagation();
+                var menu = document.getElementById('pmkPlaylistMenu');
+                menu.hidden = !menu.hidden;
+            });
+            document.getElementById('pmkPlaylistMenu').addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+            document.addEventListener('click', closePlaylistMenu);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    closePlaylistMenu();
                 }
-                var option = picker.options[picker.selectedIndex];
-                loadPlaylistForEditing(id, option ? option.dataset.imageItemId : null);
             });
 
             document.getElementById('pmkCoverButton').addEventListener('click', function () {

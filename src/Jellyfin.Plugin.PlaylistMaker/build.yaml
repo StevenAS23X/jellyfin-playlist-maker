@@ -9,8 +9,14 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.0.8.0"
+version: "1.0.9.0"
 changelog: |
+  ## v1.0.9.0
+  - Fix: the "Your Playlist" playlist picker's open dropdown list was rendered by the browser
+    itself (not the page), so it showed up in a plain white/black browser default style no matter
+    what the rest of the app looked like - most browsers ignore page CSS for a native `<select>`'s
+    open popup. Replaced it with a custom dropdown that's fully themed like the rest of the app.
+
   ## v1.0.8.0
   - Add a persistent "now playing" bar at the bottom of the page while a preview is playing, with
     a seekable progress bar, play/pause, and a stop button - not just click-to-toggle on the cover.
