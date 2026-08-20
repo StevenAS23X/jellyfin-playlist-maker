@@ -4,7 +4,7 @@
     <title>Playlist Maker</title>
 </head>
 <body>
-<div id="PlaylistMakerPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+<div id="PlaylistMakerPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
     <div data-role="content">
         <div class="content-primary">
             <style>
@@ -265,6 +265,39 @@
                     <p class="pmk-subtitle">Search your library, pick a starting genre or artist, and build a playlist with live recommendations &mdash; just like Spotify or Apple Music.</p>
                 </header>
 
+                <section class="pmk-panel pmk-lidarrSettings" style="margin-bottom: 1.5em;">
+                    <h2>Music Requests (Lidarr)</h2>
+                    <p class="pmk-subtitle">Let users search for and request new artists to be added to your library from the standalone app. Requires a running Lidarr instance.</p>
+
+                    <label class="pmk-publicToggle">
+                        <input is="emby-checkbox" type="checkbox" id="pmkLidarrEnabled" />
+                        <span>Enable music requests</span>
+                    </label>
+
+                    <div class="inputContainer">
+                        <input is="emby-input" id="pmkLidarrBaseUrl" type="text" label="Lidarr URL" placeholder="http://lidarr:8686" />
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" id="pmkLidarrApiKey" type="text" label="Lidarr API Key" placeholder="Settings &gt; General &gt; Security in Lidarr" />
+                    </div>
+
+                    <button is="emby-button" type="button" id="pmkLidarrTestButton" class="raised">Connect &amp; Load Options</button>
+                    <span class="pmk-status" id="pmkLidarrTestStatus"></span>
+
+                    <div class="inputContainer" id="pmkLidarrRootFolderField" hidden>
+                        <select is="emby-select" id="pmkLidarrRootFolder" label="Root Folder"></select>
+                    </div>
+                    <div class="inputContainer" id="pmkLidarrQualityField" hidden>
+                        <select is="emby-select" id="pmkLidarrQualityProfile" label="Quality Profile"></select>
+                    </div>
+                    <div class="inputContainer" id="pmkLidarrMetadataField" hidden>
+                        <select is="emby-select" id="pmkLidarrMetadataProfile" label="Metadata Profile"></select>
+                    </div>
+
+                    <button is="emby-button" type="button" id="pmkLidarrSaveButton" class="raised button-submit">Save Music Request Settings</button>
+                    <div class="pmk-status" id="pmkLidarrSaveStatus"></div>
+                </section>
+
                 <div class="pmk-columns">
 
                     <!-- Discover / search column -->
@@ -337,13 +370,16 @@
 
                     var CHIP_LIMIT = 24;
 
+                    var PLUGIN_ID = 'f3b1a7f0-4b9a-4e9c-9c1e-8a2b6d5e7c11';
+
                     var state = {
                         userId: null,
                         draft: [],
                         selectedGenres: new Set(),
                         selectedArtists: new Set(),
                         searchTimer: null,
-                        recommendTimer: null
+                        recommendTimer: null,
+                        lidarrConfig: null
                     };
 
                     function buildQuery(params) {
@@ -622,6 +658,109 @@
                         });
                     }
 
+                    function populateSelect(selectEl, options, selectedValue) {
+                        clearChildren(selectEl);
+                        options.forEach(function (opt) {
+                            var optionEl = document.createElement('option');
+                            optionEl.value = opt.Value;
+                            optionEl.textContent = opt.Label;
+                            selectEl.appendChild(optionEl);
+                        });
+                        if (selectedValue) {
+                            selectEl.value = selectedValue;
+                        }
+                    }
+
+                    function loadLidarrOptions(config) {
+                        var statusEl = pageEl.querySelector('#pmkLidarrTestStatus');
+                        statusEl.textContent = 'Connecting…';
+                        statusEl.className = 'pmk-status';
+
+                        return Promise.all([
+                            apiGet('PlaylistMaker/MusicRequests/RootFolders'),
+                            apiGet('PlaylistMaker/MusicRequests/QualityProfiles'),
+                            apiGet('PlaylistMaker/MusicRequests/MetadataProfiles')
+                        ]).then(function (results) {
+                            var rootFolders = results[0] || [];
+                            var qualityProfiles = results[1] || [];
+                            var metadataProfiles = results[2] || [];
+
+                            pageEl.querySelector('#pmkLidarrRootFolderField').hidden = rootFolders.length === 0;
+                            pageEl.querySelector('#pmkLidarrQualityField').hidden = qualityProfiles.length === 0;
+                            pageEl.querySelector('#pmkLidarrMetadataField').hidden = metadataProfiles.length === 0;
+
+                            populateSelect(pageEl.querySelector('#pmkLidarrRootFolder'), rootFolders, config.LidarrRootFolderPath);
+                            populateSelect(pageEl.querySelector('#pmkLidarrQualityProfile'), qualityProfiles, String(config.LidarrQualityProfileId || ''));
+                            populateSelect(pageEl.querySelector('#pmkLidarrMetadataProfile'), metadataProfiles, String(config.LidarrMetadataProfileId || ''));
+
+                            statusEl.textContent = 'Connected. Pick your options below, then save.';
+                            statusEl.className = 'pmk-status pmk-statusOk';
+                        }).catch(function () {
+                            statusEl.textContent = 'Could not connect to Lidarr - check the URL and API key.';
+                            statusEl.className = 'pmk-status pmk-statusError';
+                        });
+                    }
+
+                    function loadLidarrConfig() {
+                        return ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (config) {
+                            state.lidarrConfig = config;
+                            pageEl.querySelector('#pmkLidarrEnabled').checked = !!config.LidarrEnabled;
+                            pageEl.querySelector('#pmkLidarrBaseUrl').value = config.LidarrBaseUrl || '';
+                            pageEl.querySelector('#pmkLidarrApiKey').value = config.LidarrApiKey || '';
+
+                            if (config.LidarrBaseUrl && config.LidarrApiKey) {
+                                return loadLidarrOptions(config);
+                            }
+                        });
+                    }
+
+                    function connectLidarr() {
+                        var statusEl = pageEl.querySelector('#pmkLidarrTestStatus');
+                        var config = state.lidarrConfig || {};
+                        config.LidarrBaseUrl = pageEl.querySelector('#pmkLidarrBaseUrl').value.trim().replace(/\/+$/, '');
+                        config.LidarrApiKey = pageEl.querySelector('#pmkLidarrApiKey').value.trim();
+
+                        if (!config.LidarrBaseUrl || !config.LidarrApiKey) {
+                            statusEl.textContent = 'Enter a Lidarr URL and API key first.';
+                            statusEl.className = 'pmk-status pmk-statusError';
+                            return;
+                        }
+
+                        statusEl.textContent = 'Saving connection…';
+                        statusEl.className = 'pmk-status';
+
+                        ApiClient.updatePluginConfiguration(PLUGIN_ID, config).then(function () {
+                            state.lidarrConfig = config;
+                            return loadLidarrOptions(config);
+                        }).catch(function () {
+                            statusEl.textContent = 'Could not save the connection settings.';
+                            statusEl.className = 'pmk-status pmk-statusError';
+                        });
+                    }
+
+                    function saveLidarrSettings() {
+                        var saveStatusEl = pageEl.querySelector('#pmkLidarrSaveStatus');
+                        var config = state.lidarrConfig || {};
+                        config.LidarrEnabled = !!pageEl.querySelector('#pmkLidarrEnabled').checked;
+                        config.LidarrBaseUrl = pageEl.querySelector('#pmkLidarrBaseUrl').value.trim().replace(/\/+$/, '');
+                        config.LidarrApiKey = pageEl.querySelector('#pmkLidarrApiKey').value.trim();
+                        config.LidarrRootFolderPath = pageEl.querySelector('#pmkLidarrRootFolder').value || '';
+                        config.LidarrQualityProfileId = parseInt(pageEl.querySelector('#pmkLidarrQualityProfile').value, 10) || 0;
+                        config.LidarrMetadataProfileId = parseInt(pageEl.querySelector('#pmkLidarrMetadataProfile').value, 10) || 0;
+
+                        saveStatusEl.textContent = 'Saving…';
+                        saveStatusEl.className = 'pmk-status';
+
+                        ApiClient.updatePluginConfiguration(PLUGIN_ID, config).then(function () {
+                            state.lidarrConfig = config;
+                            saveStatusEl.textContent = 'Saved.';
+                            saveStatusEl.className = 'pmk-status pmk-statusOk';
+                        }).catch(function () {
+                            saveStatusEl.textContent = 'Could not save.';
+                            saveStatusEl.className = 'pmk-status pmk-statusError';
+                        });
+                    }
+
                     function init() {
                         state.userId = ApiClient.getCurrentUserId();
                         state.draft = [];
@@ -631,6 +770,7 @@
                         renderDraft();
                         loadFacets();
                         refreshRecommendations();
+                        loadLidarrConfig();
 
                         var searchInput = pageEl.querySelector('#pmkSearchInput');
                         searchInput.value = '';
@@ -642,6 +782,8 @@
 
                         pageEl.querySelector('#pmkSaveButton').addEventListener('click', savePlaylist);
                         pageEl.querySelector('#pmkShuffleButton').addEventListener('click', function () { refreshRecommendations(); });
+                        pageEl.querySelector('#pmkLidarrTestButton').addEventListener('click', connectLidarr);
+                        pageEl.querySelector('#pmkLidarrSaveButton').addEventListener('click', saveLidarrSettings);
                     }
 
                     pageEl.addEventListener('pageshow', init);

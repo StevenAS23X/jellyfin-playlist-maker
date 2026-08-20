@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Services;
+using MediaBrowser.Common.Api;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Playlists;
@@ -30,6 +31,7 @@ public class PlaylistMakerController : ControllerBase
     private readonly IRecommendationService _recommendationService;
     private readonly IPlaylistManager _playlistManager;
     private readonly IProviderManager _providerManager;
+    private readonly ILidarrService _lidarrService;
     private readonly ILogger<PlaylistMakerController> _logger;
 
     /// <summary>
@@ -38,16 +40,19 @@ public class PlaylistMakerController : ControllerBase
     /// <param name="recommendationService">Instance of the <see cref="IRecommendationService"/> interface.</param>
     /// <param name="playlistManager">Instance of the <see cref="IPlaylistManager"/> interface.</param>
     /// <param name="providerManager">Instance of the <see cref="IProviderManager"/> interface.</param>
+    /// <param name="lidarrService">Instance of the <see cref="ILidarrService"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{PlaylistMakerController}"/> interface.</param>
     public PlaylistMakerController(
         IRecommendationService recommendationService,
         IPlaylistManager playlistManager,
         IProviderManager providerManager,
+        ILidarrService lidarrService,
         ILogger<PlaylistMakerController> logger)
     {
         _recommendationService = recommendationService;
         _playlistManager = playlistManager;
         _providerManager = providerManager;
+        _lidarrService = lidarrService;
         _logger = logger;
     }
 
@@ -336,6 +341,98 @@ public class PlaylistMakerController : ControllerBase
             .ConfigureAwait(false);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Gets whether "Request Music" is available (Lidarr is configured), so the UI can hide the
+    /// whole feature when it isn't set up.
+    /// </summary>
+    /// <returns><see langword="true"/> if requests can be made.</returns>
+    [HttpGet("MusicRequests/Enabled")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<bool> GetMusicRequestsEnabled()
+    {
+        return Ok(_lidarrService.IsConfigured);
+    }
+
+    /// <summary>
+    /// Searches Lidarr for artists matching the given name, to request one be added.
+    /// </summary>
+    /// <param name="term">The search text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Matching artists.</returns>
+    [HttpGet("MusicRequests/Search")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<LidarrArtistDto>>> SearchMusicRequests(
+        [FromQuery] string term,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await _lidarrService.SearchArtists(term, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Requests that an artist be added to Lidarr (monitored, searching for missing albums).
+    /// </summary>
+    /// <param name="request">The artist to request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content on success.</returns>
+    [HttpPost("MusicRequests")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult> RequestMusic(
+        [FromBody] MusicRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _lidarrService.RequestArtist(request.ForeignArtistId, request.ArtistName, cancellationToken)
+                .ConfigureAwait(false);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Music request failed for {ArtistName}", request.ArtistName);
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Gets Lidarr's configured root folders, for the admin settings page.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Root folder options.</returns>
+    [HttpGet("MusicRequests/RootFolders")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<LidarrOptionDto>>> GetLidarrRootFolders(CancellationToken cancellationToken)
+    {
+        return Ok(await _lidarrService.GetRootFolders(cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Gets Lidarr's configured quality profiles, for the admin settings page.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Quality profile options.</returns>
+    [HttpGet("MusicRequests/QualityProfiles")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<LidarrOptionDto>>> GetLidarrQualityProfiles(CancellationToken cancellationToken)
+    {
+        return Ok(await _lidarrService.GetQualityProfiles(cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Gets Lidarr's configured metadata profiles, for the admin settings page.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Metadata profile options.</returns>
+    [HttpGet("MusicRequests/MetadataProfiles")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<LidarrOptionDto>>> GetLidarrMetadataProfiles(CancellationToken cancellationToken)
+    {
+        return Ok(await _lidarrService.GetMetadataProfiles(cancellationToken).ConfigureAwait(false));
     }
 
     private static bool CanEdit(Playlist playlist, Guid userId)

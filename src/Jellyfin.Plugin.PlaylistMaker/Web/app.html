@@ -726,6 +726,93 @@
             }
         }
 
+        .pmk-requestMusic {
+            margin-top: 1.5em;
+            min-height: 0;
+        }
+
+        .pmk-requestResults {
+            max-height: 30em;
+            overflow-y: auto;
+        }
+
+        .pmk-requestRow {
+            display: flex;
+            align-items: center;
+            gap: 0.9em;
+            padding: 0.7em 0.3em;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .pmk-requestRow:last-child {
+            border-bottom: none;
+        }
+
+        .pmk-requestArt {
+            flex-shrink: 0;
+            width: 3.4em;
+            height: 3.4em;
+            border-radius: 0.35em;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        .pmk-requestArt img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .pmk-requestInfo {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .pmk-requestName {
+            font-weight: 600;
+        }
+
+        .pmk-requestMeta {
+            font-size: 0.82em;
+            color: #b3b3b3;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .pmk-requestAction {
+            flex-shrink: 0;
+            border-radius: 0.25em;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: transparent;
+            color: inherit;
+            font-size: 0.85em;
+            padding: 0.4em 1em;
+            cursor: pointer;
+        }
+
+        .pmk-requestAction:hover:not(:disabled) {
+            border-color: rgba(0, 164, 220, 0.9);
+            color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-requestAction:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .pmk-requestAction.pmk-requestActionDone {
+            border-color: #3fbf5f;
+            color: #3fbf5f;
+        }
+
+        .pmk-requestAction.pmk-requestActionError {
+            border-color: #e0455b;
+            color: #e0455b;
+        }
+
         [hidden] {
             display: none !important;
         }
@@ -846,6 +933,17 @@
             </section>
 
         </div>
+
+        <section class="pmk-panel pmk-requestMusic" id="pmkRequestMusicPanel" hidden>
+            <h2>Request Music</h2>
+            <p class="pmk-subtitle">Don't have an artist in your library? Search for them here and request they be added.</p>
+            <div class="pmk-searchRow">
+                <input id="pmkRequestSearchInput" type="text" placeholder="Search for an artist to request&hellip;" class="pmk-searchInput" />
+            </div>
+            <div class="pmk-requestResults" id="pmkRequestResults">
+                <p class="pmk-empty">Search above for an artist.</p>
+            </div>
+        </section>
     </div>
 </div>
 
@@ -869,7 +967,7 @@
         var STORAGE_USER_ID = 'pmk_userId';
         var STORAGE_DEVICE_ID = 'pmk_deviceId';
         var CLIENT_NAME = 'Playlist Maker';
-        var CLIENT_VERSION = '1.0.9.0';
+        var CLIENT_VERSION = '1.1.0.0';
         var CHIP_LIMIT = 24;
         var CHIP_VISIBLE_DEFAULT = 10;
         var QUICK_CONNECT_POLL_MS = 2000;
@@ -887,6 +985,7 @@
             editingPlaylistImageVersion: null,
             loadedEntryIdByTrackId: {},
             lastShownRecommendedIds: [],
+            requestSearchTimer: null,
             quickConnectSecret: null,
             quickConnectTimer: null,
             playingTrackId: null,
@@ -1678,6 +1777,111 @@
                 });
         }
 
+        function buildRequestRow(artist) {
+            var row = document.createElement('div');
+            row.className = 'pmk-requestRow';
+
+            var art = document.createElement('div');
+            art.className = 'pmk-requestArt';
+            if (artist.ImageUrl) {
+                var img = document.createElement('img');
+                img.src = artist.ImageUrl;
+                img.alt = '';
+                img.loading = 'lazy';
+                art.appendChild(img);
+            }
+            row.appendChild(art);
+
+            var info = document.createElement('div');
+            info.className = 'pmk-requestInfo';
+
+            var name = document.createElement('div');
+            name.className = 'pmk-requestName';
+            name.textContent = artist.ArtistName + (artist.Disambiguation ? ' (' + artist.Disambiguation + ')' : '');
+            info.appendChild(name);
+
+            if (artist.Overview) {
+                var meta = document.createElement('div');
+                meta.className = 'pmk-requestMeta';
+                meta.textContent = artist.Overview;
+                info.appendChild(meta);
+            }
+
+            row.appendChild(info);
+
+            var action = document.createElement('button');
+            action.type = 'button';
+            action.className = 'pmk-requestAction';
+            action.textContent = 'Request';
+            action.addEventListener('click', function () {
+                action.disabled = true;
+                action.textContent = 'Requesting…';
+                apiPost('/PlaylistMaker/MusicRequests', {
+                    ForeignArtistId: artist.ForeignArtistId,
+                    ArtistName: artist.ArtistName
+                }).then(function () {
+                    action.textContent = 'Requested';
+                    action.className = 'pmk-requestAction pmk-requestActionDone';
+                }).catch(function () {
+                    action.disabled = false;
+                    action.textContent = 'Try again';
+                    action.className = 'pmk-requestAction pmk-requestActionError';
+                });
+            });
+            row.appendChild(action);
+
+            return row;
+        }
+
+        function runRequestMusicSearch() {
+            var resultsEl = document.getElementById('pmkRequestResults');
+            var term = document.getElementById('pmkRequestSearchInput').value.trim();
+
+            if (!term) {
+                clearChildren(resultsEl);
+                var empty = document.createElement('p');
+                empty.className = 'pmk-empty';
+                empty.textContent = 'Search above for an artist.';
+                resultsEl.appendChild(empty);
+                return;
+            }
+
+            apiGet('/PlaylistMaker/MusicRequests/Search', { term: term }).then(function (artists) {
+                clearChildren(resultsEl);
+                if (!artists || artists.length === 0) {
+                    var none = document.createElement('p');
+                    none.className = 'pmk-empty';
+                    none.textContent = 'No artists found.';
+                    resultsEl.appendChild(none);
+                    return;
+                }
+                artists.forEach(function (artist) {
+                    resultsEl.appendChild(buildRequestRow(artist));
+                });
+            }).catch(function () {
+                clearChildren(resultsEl);
+                var err = document.createElement('p');
+                err.className = 'pmk-empty';
+                err.textContent = 'Search failed. Try again.';
+                resultsEl.appendChild(err);
+            });
+        }
+
+        function initRequestMusic() {
+            apiGet('/PlaylistMaker/MusicRequests/Enabled').then(function (enabled) {
+                var panel = document.getElementById('pmkRequestMusicPanel');
+                panel.hidden = !enabled;
+                if (!enabled) {
+                    return;
+                }
+                var input = document.getElementById('pmkRequestSearchInput');
+                input.addEventListener('input', function () {
+                    window.clearTimeout(state.requestSearchTimer);
+                    state.requestSearchTimer = window.setTimeout(runRequestMusicSearch, 300);
+                });
+            }).catch(function () { /* feature not available - leave hidden */ });
+        }
+
         function initBuilder() {
             renderDraft();
             loadFacets();
@@ -1717,6 +1921,8 @@
                 uploadCoverArt(file);
                 e.target.value = '';
             });
+
+            initRequestMusic();
         }
 
         function showBuilder() {
