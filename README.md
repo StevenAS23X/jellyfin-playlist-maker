@@ -142,6 +142,171 @@ tag is pushed, and publishes/updates `manifest.json` + the built plugin zip on t
 3. Restart Jellyfin.
 4. Send your users to `http://<your-server>:8096/PlaylistMaker/App`.
 
+## Optional: a quick-access button in the Jellyfin web UI
+
+Since `/PlaylistMaker/App` is a separate page outside `jellyfin-web`, there's nothing
+in the stock Jellyfin UI that links to it. If your setup already has a way to inject
+custom CSS/JS into the Jellyfin web client — the built-in **Dashboard → General →
+Custom CSS** field covers the CSS half; the JS half needs something outside Jellyfin
+itself, e.g. a `<script>` tag added directly to `jellyfin-web`'s `index.html`, or a
+reverse-proxy rule (nginx `sub_filter`, Caddy `replace`, etc.) that inserts one — the
+snippet below adds a "Playlist Maker" button to the Playlists page that opens the app
+in a new tab.
+
+Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
+
+```css
+#jfPlaylistMakerButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    min-height: 40px;
+    padding: 0.65em 1.15em;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#jfPlaylistMakerButton:hover {
+    background: rgba(255, 255, 255, 0.20);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    color: #fff;
+    text-decoration: none;
+}
+
+#jfPlaylistMakerButton:active {
+    transform: translateY(0);
+}
+
+#jfPlaylistMakerButton:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+}
+
+#jfPlaylistMakerButton .playlistMakerIcon {
+    font-family: "Material Icons";
+    font-size: 1.4em;
+    line-height: 1;
+}
+
+.jfPlaylistMakerContainer {
+    display: flex;
+    align-items: center;
+    gap: 0.75em;
+    margin: 0.5em 0 1em 0;
+}
+```
+
+```js
+(() => {
+    "use strict";
+
+    // Point this at your own server - the standalone app's URL.
+    const PLAYLIST_MAKER_URL = "https://your-jellyfin-server.example.com/PlaylistMaker/App";
+
+    const BUTTON_ID = "jfPlaylistMakerButton";
+    const CONTAINER_CLASS = "jfPlaylistMakerContainer";
+
+    function isPlaylistsPage() {
+        const hash = window.location.hash.toLowerCase();
+        const path = window.location.pathname.toLowerCase();
+        return hash.includes("playlists") || path.includes("playlists");
+    }
+
+    function createButton() {
+        const button = document.createElement("a");
+        button.id = BUTTON_ID;
+        button.href = PLAYLIST_MAKER_URL;
+        button.target = "_blank";
+        button.rel = "noopener noreferrer";
+        button.setAttribute("aria-label", "Open Playlist Maker in a new tab");
+        button.innerHTML = `
+            <span class="playlistMakerIcon material-icons" aria-hidden="true">playlist_add</span>
+            <span>Playlist Maker</span>
+        `;
+        return button;
+    }
+
+    function findTarget() {
+        const selectors = [
+            ".view-playlists .sectionTitleContainer",
+            ".view-playlists .header",
+            "[data-type='playlists'] .sectionTitleContainer",
+            ".pageTitleWithLogo",
+            ".sectionTitleContainer",
+            ".padded-left.padded-right"
+        ];
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    function removeDuplicates() {
+        document.querySelectorAll(`#${BUTTON_ID}`).forEach((button, index) => {
+            if (index === 0) {
+                return;
+            }
+            const container = button.closest(`.${CONTAINER_CLASS}`);
+            (container || button).remove();
+        });
+    }
+
+    function update() {
+        if (!isPlaylistsPage()) {
+            const existing = document.querySelector(`.${CONTAINER_CLASS}`);
+            if (existing) {
+                existing.remove();
+            }
+            return;
+        }
+
+        if (document.getElementById(BUTTON_ID)) {
+            return;
+        }
+
+        const target = findTarget();
+        if (!target) {
+            return;
+        }
+
+        const container = document.createElement("div");
+        container.className = CONTAINER_CLASS;
+        container.appendChild(createButton());
+        target.insertAdjacentElement("afterend", container);
+
+        removeDuplicates();
+    }
+
+    window.addEventListener("hashchange", update);
+    window.addEventListener("popstate", update);
+    document.addEventListener("DOMContentLoaded", update);
+
+    // Jellyfin's web client is a single-page app - it swaps page content in place
+    // without a full reload, so hashchange/popstate alone miss most in-app
+    // navigation. This watches for that DOM churn and re-adds the button whenever
+    // the Playlists page is (re)rendered.
+    new MutationObserver(update).observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+
+    update();
+})();
+```
+
 ## Releasing a new version
 
 Bump the `version` in `src/Jellyfin.Plugin.PlaylistMaker/build.yaml` (and add a
