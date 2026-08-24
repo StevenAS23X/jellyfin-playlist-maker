@@ -44,6 +44,14 @@ public interface IRecommendationService
     IReadOnlyList<string> GetArtists(Guid userId);
 
     /// <summary>
+    /// Gets the distinct (artist, album title) pairs present in the user's music library, for
+    /// filtering albums the user already has out of the "Request Music" search.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <returns>Artist/album title pairs already in the library.</returns>
+    IReadOnlyList<(string Artist, string Title)> GetOwnedAlbums(Guid userId);
+
+    /// <summary>
     /// Scores every eligible track in the library against the given seed tracks / genres / artists
     /// and returns the highest scoring matches, similar to a streaming service's "you might also like"
     /// panel while building a playlist. Falls back to popularity / recency when no seed is supplied.

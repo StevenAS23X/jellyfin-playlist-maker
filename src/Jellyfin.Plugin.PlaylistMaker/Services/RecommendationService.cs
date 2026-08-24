@@ -175,6 +175,21 @@ public class RecommendationService : IRecommendationService
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<(string Artist, string Title)> GetOwnedAlbums(Guid userId)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null)
+        {
+            return Array.Empty<(string, string)>();
+        }
+
+        return GetAllTracks(user)
+            .Select(t => (Artist: TrackDtoMapper.GetArtistNames(t).FirstOrDefault() ?? string.Empty, Title: t.AlbumEntity?.Name ?? string.Empty))
+            .Where(x => x.Artist.Length > 0 && x.Title.Length > 0)
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public IReadOnlyList<TrackDto> GetRecommendations(
         Guid userId,
         IReadOnlyList<Guid> seedItemIds,

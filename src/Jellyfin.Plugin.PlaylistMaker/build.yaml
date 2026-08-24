@@ -9,8 +9,18 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.4.0"
+version: "1.1.5.0"
 changelog: |
+  ## v1.1.5.0
+  - Fix: requesting an album never actually triggered a search in Lidarr. Lidarr's own add-album
+    endpoint never refreshes the newly-created artist for a brand-new artist+album request, so the
+    "search on add" flags (searchForNewAlbum / searchForMissingAlbums) never fired - they both only
+    take effect once that refresh completes, which never happened. Now triggers a direct AlbumSearch
+    command against the album right after it's added instead, which doesn't depend on that refresh.
+  - Both Request an Artist and Request an Album now leave out anything already in your library, so
+    already-owned artists/albums don't show up as request-able.
+  - "Request an Album" now appears first in the Request Music panel, ahead of "Request an Artist".
+
   ## v1.1.4.0
   - Add "Request an Album": search by album/single title and request just that release, instead
     of an artist's whole discography. The artist is added with monitoring scoped to only that one

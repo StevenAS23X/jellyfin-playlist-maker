@@ -1030,15 +1030,6 @@
                 anyway - search for it by title below instead.
             </p>
 
-            <h3 class="pmk-requestSubheading">Request an Artist</h3>
-            <p class="pmk-subtitle">Don't have an artist in your library? Search for them here and request they be added.</p>
-            <div class="pmk-searchRow">
-                <input id="pmkRequestSearchInput" type="text" placeholder="Search for an artist to request&hellip;" class="pmk-searchInput" />
-            </div>
-            <div class="pmk-requestResults" id="pmkRequestResults">
-                <p class="pmk-empty">Search above for an artist.</p>
-            </div>
-
             <h3 class="pmk-requestSubheading">Request an Album</h3>
             <p class="pmk-subtitle">Search by album or single title to request just that release, not the whole artist.</p>
             <div class="pmk-searchRow">
@@ -1046,6 +1037,15 @@
             </div>
             <div class="pmk-requestResults" id="pmkAlbumRequestResults">
                 <p class="pmk-empty">Search above for an album.</p>
+            </div>
+
+            <h3 class="pmk-requestSubheading">Request an Artist</h3>
+            <p class="pmk-subtitle">Don't have an artist in your library? Search for them here and request they be added.</p>
+            <div class="pmk-searchRow">
+                <input id="pmkRequestSearchInput" type="text" placeholder="Search for an artist to request&hellip;" class="pmk-searchInput" />
+            </div>
+            <div class="pmk-requestResults" id="pmkRequestResults">
+                <p class="pmk-empty">Search above for an artist.</p>
             </div>
         </section>
     </div>
@@ -2010,7 +2010,7 @@
                 return;
             }
 
-            apiGet('/PlaylistMaker/MusicRequests/Search', { term: term }).then(function (artists) {
+            apiGet('/PlaylistMaker/MusicRequests/Search', { userId: state.userId, term: term }).then(function (artists) {
                 clearChildren(resultsEl);
                 if (!artists || artists.length === 0) {
                     var none = document.createElement('p');
@@ -2122,7 +2122,7 @@
                 return;
             }
 
-            apiGet('/PlaylistMaker/MusicRequests/Albums/Search', { term: term }).then(function (albums) {
+            apiGet('/PlaylistMaker/MusicRequests/Albums/Search', { userId: state.userId, term: term }).then(function (albums) {
                 clearChildren(resultsEl);
                 if (!albums || albums.length === 0) {
                     var none = document.createElement('p');

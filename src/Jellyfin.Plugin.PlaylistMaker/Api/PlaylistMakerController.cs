@@ -396,18 +396,26 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
-    /// Searches Lidarr for artists matching the given name, to request one be added.
+    /// Searches Lidarr for artists matching the given name, to request one be added. Artists
+    /// already present in the user's library are left out.
     /// </summary>
+    /// <param name="userId">The requesting user id.</param>
     /// <param name="term">The search text.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Matching artists.</returns>
     [HttpGet("MusicRequests/Search")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<LidarrArtistDto>>> SearchMusicRequests(
+        [FromQuery] Guid userId,
         [FromQuery] string term,
         CancellationToken cancellationToken)
     {
-        return Ok(await _lidarrService.SearchArtists(term, cancellationToken).ConfigureAwait(false));
+        var results = await _lidarrService.SearchArtists(term, cancellationToken).ConfigureAwait(false);
+        var ownedArtists = new HashSet<string>(
+            _recommendationService.GetArtists(userId).Select(NormalizeForMatch),
+            StringComparer.Ordinal);
+
+        return Ok(results.Where(r => !ownedArtists.Contains(NormalizeForMatch(r.ArtistName))).ToList());
     }
 
     /// <summary>
@@ -448,18 +456,26 @@ public class PlaylistMakerController : ControllerBase
 
     /// <summary>
     /// Searches Lidarr for albums/singles matching the given title, to request just that release
-    /// be added rather than an artist's whole discography.
+    /// be added rather than an artist's whole discography. Albums already present in the user's
+    /// library are left out.
     /// </summary>
+    /// <param name="userId">The requesting user id.</param>
     /// <param name="term">The search text.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Matching albums.</returns>
     [HttpGet("MusicRequests/Albums/Search")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<LidarrAlbumDto>>> SearchAlbumRequests(
+        [FromQuery] Guid userId,
         [FromQuery] string term,
         CancellationToken cancellationToken)
     {
-        return Ok(await _lidarrService.SearchAlbums(term, cancellationToken).ConfigureAwait(false));
+        var results = await _lidarrService.SearchAlbums(term, cancellationToken).ConfigureAwait(false);
+        var ownedAlbums = new HashSet<string>(
+            _recommendationService.GetOwnedAlbums(userId).Select(a => OwnedAlbumKey(a.Artist, a.Title)),
+            StringComparer.Ordinal);
+
+        return Ok(results.Where(r => !ownedAlbums.Contains(OwnedAlbumKey(r.ArtistName, r.Title))).ToList());
     }
 
     /// <summary>
@@ -546,5 +562,22 @@ public class PlaylistMakerController : ControllerBase
     {
         return playlist.OwnerUserId.Equals(userId)
             || playlist.Shares.Any(s => s.CanEdit && s.UserId.Equals(userId));
+    }
+
+    // Strips everything but letters/digits before comparing, so a Lidarr result and a library tag
+    // that differ only in punctuation/casing (e.g. "Sam's Town" vs "Sams Town") still match.
+    private static string NormalizeForMatch(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        return new string(text.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+    }
+
+    private static string OwnedAlbumKey(string artist, string title)
+    {
+        return NormalizeForMatch(artist) + "|" + NormalizeForMatch(title);
     }
 }

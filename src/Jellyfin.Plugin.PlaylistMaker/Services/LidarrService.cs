@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 using Jellyfin.Plugin.PlaylistMaker.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.PlaylistMaker.Services;
 
@@ -28,14 +29,17 @@ public class LidarrService : ILidarrService
     };
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<LidarrService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LidarrService"/> class.
     /// </summary>
     /// <param name="httpClientFactory">Instance of the <see cref="IHttpClientFactory"/> interface.</param>
-    public LidarrService(IHttpClientFactory httpClientFactory)
+    /// <param name="logger">Instance of the <see cref="ILogger{LidarrService}"/> interface.</param>
+    public LidarrService(IHttpClientFactory httpClientFactory, ILogger<LidarrService> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
     }
 
     private static PluginConfiguration Config => Plugin.Instance!.Configuration;
@@ -199,13 +203,21 @@ public class LidarrService : ILidarrService
         // Unlike RequestArtist, the artist here is only added as a container for this one album -
         // Monitor "none" plus AlbumsToMonitor scoped to just this release means Lidarr won't pull
         // in or search for the rest of the artist's discography once it refreshes their metadata.
+        //
+        // Lidarr's own AddAlbumService never triggers the artist metadata refresh for a brand-new
+        // artist+album combo add (it hardcodes doRefresh:false for that internal call), so the
+        // "search on add" AddOptions flags below - which both only take effect once that refresh
+        // completes and fires an internal scan event - never actually fire here. AlbumsToMonitor
+        // still needs to be set for future/general monitoring to be scoped correctly, but the
+        // actual search is instead triggered directly below, against the album Lidarr just
+        // created, right after this call returns.
         var body = new LidarrAddAlbumRequest
         {
             ForeignAlbumId = foreignAlbumId,
             Monitored = true,
             AddOptions = new LidarrAddAlbumOptions
             {
-                SearchForNewAlbum = true
+                SearchForNewAlbum = false
             },
             Artist = new LidarrAddArtistRequest
             {
@@ -238,6 +250,49 @@ public class LidarrService : ILidarrService
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException(
                 $"Lidarr rejected the request for \"{albumTitle}\" ({(int)response.StatusCode}): {errorBody}");
+        }
+
+        var created = await response.Content.ReadFromJsonAsync<LidarrAlbumAddResult>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+        if (created is not null && created.Id > 0)
+        {
+            await TriggerSearchCommand(config, "AlbumSearch", albumIds: new List<int> { created.Id }, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    // Best-effort: the album/artist was already added successfully by this point, so a failure to
+    // kick off the immediate search shouldn't fail the whole request - Lidarr's own scheduled
+    // tasks will eventually pick it up regardless.
+    private async Task TriggerSearchCommand(
+        PluginConfiguration config,
+        string name,
+        List<int>? albumIds,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(config.LidarrBaseUrl, "/api/v1/command"))
+            {
+                Content = JsonContent.Create(new LidarrCommandRequest { Name = name, AlbumIds = albumIds }, options: JsonOptions)
+            };
+            request.Headers.Add(ApiKeyHeader, config.LidarrApiKey);
+
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                _logger.LogWarning(
+                    "Lidarr rejected the {CommandName} search command ({StatusCode}): {ErrorBody}",
+                    name,
+                    (int)response.StatusCode,
+                    errorBody);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Could not reach Lidarr to trigger the {CommandName} search command", name);
         }
     }
 
@@ -400,5 +455,17 @@ public class LidarrService : ILidarrService
     private sealed class LidarrAddAlbumOptions
     {
         public bool SearchForNewAlbum { get; set; }
+    }
+
+    private sealed class LidarrAlbumAddResult
+    {
+        public int Id { get; set; }
+    }
+
+    private sealed class LidarrCommandRequest
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public List<int>? AlbumIds { get; set; }
     }
 }
