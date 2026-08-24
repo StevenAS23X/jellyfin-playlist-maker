@@ -967,7 +967,7 @@
         var STORAGE_USER_ID = 'pmk_userId';
         var STORAGE_DEVICE_ID = 'pmk_deviceId';
         var CLIENT_NAME = 'Playlist Maker';
-        var CLIENT_VERSION = '1.1.0.0';
+        var CLIENT_VERSION = '1.1.2.0';
         var CHIP_LIMIT = 24;
         var CHIP_VISIBLE_DEFAULT = 10;
         var QUICK_CONNECT_POLL_MS = 2000;
@@ -991,7 +991,8 @@
             playingTrackId: null,
             playingTrack: null,
             playlistOptions: [],
-            selectedPlaylistId: ''
+            selectedPlaylistId: '',
+            loadedPlaylistName: null
         };
 
         var audioEl = new Audio();
@@ -1651,6 +1652,7 @@
             state.editingPlaylistImageItemId = null;
             state.editingPlaylistImageVersion = null;
             state.loadedEntryIdByTrackId = {};
+            state.loadedPlaylistName = null;
             document.getElementById('pmkPlaylistName').value = '';
             document.getElementById('pmkPlaylistPublic').checked = false;
             document.getElementById('pmkPlaylistPublic').disabled = false;
@@ -1675,7 +1677,8 @@
                 });
 
                 var selectedOption = getSelectedPlaylistOption();
-                document.getElementById('pmkPlaylistName').value = selectedOption ? (selectedOption.name || '') : '';
+                state.loadedPlaylistName = selectedOption ? (selectedOption.name || '') : '';
+                document.getElementById('pmkPlaylistName').value = state.loadedPlaylistName;
                 document.getElementById('pmkPlaylistPublic').disabled = true;
 
                 renderDraft();
@@ -1723,6 +1726,12 @@
                     work.push(apiDelete('/PlaylistMaker/Playlists/' + state.editingPlaylistId + '/Items', {
                         userId: state.userId,
                         entryIds: removedEntryIds
+                    }));
+                }
+                if (name !== state.loadedPlaylistName) {
+                    work.push(apiPost('/PlaylistMaker/Playlists/' + state.editingPlaylistId + '/Name', {
+                        UserId: state.userId,
+                        Name: name
                     }));
                 }
 

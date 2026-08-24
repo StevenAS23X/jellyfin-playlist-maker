@@ -9,8 +9,13 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.1.0"
+version: "1.1.2.0"
 changelog: |
+  ## v1.1.2.0
+  - Fix: renaming an existing playlist while editing it didn't actually save - the "Update
+    Playlist" save path only ever added/removed tracks, it never sent the name anywhere. Renaming
+    now works, saved along with any track changes in the same update.
+
   ## v1.1.1.0
   - Fix: searching was very slow (and could time out with no results) because genre matching
     pulled every track in the library into memory on every keystroke to check each one's genres

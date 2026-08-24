@@ -266,6 +266,42 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Renames an existing playlist.
+    /// </summary>
+    /// <param name="playlistId">The playlist id.</param>
+    /// <param name="request">The requesting user id and the new name.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("Playlists/{playlistId}/Name")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> RenamePlaylist([FromRoute] Guid playlistId, [FromBody] RenamePlaylistRequestDto request)
+    {
+        var playlist = _playlistManager.GetPlaylistForUser(playlistId, request.UserId);
+        if (playlist is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanEdit(playlist, request.UserId))
+        {
+            return Forbid();
+        }
+
+        // Ids must be left null here - passing a non-null (even empty) list makes
+        // IPlaylistManager.UpdatePlaylist wipe every existing item and rebuild the playlist from
+        // just that list, which is not what a rename should do.
+        await _playlistManager.UpdatePlaylist(new PlaylistUpdateRequest
+        {
+            Id = playlistId,
+            UserId = request.UserId,
+            Name = request.Name
+        }).ConfigureAwait(false);
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Sets a playlist's cover art from an uploaded image. Jellyfin's own image endpoint requires
     /// admin elevation for any item; this lets the playlist's own owner (or an editor) set the
     /// image for a playlist they're allowed to manage.
