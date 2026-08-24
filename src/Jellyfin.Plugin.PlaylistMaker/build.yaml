@@ -9,8 +9,19 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.3.0"
+version: "1.1.4.0"
 changelog: |
+  ## v1.1.4.0
+  - Add "Request an Album": search by album/single title and request just that release, instead
+    of an artist's whole discography. The artist is added with monitoring scoped to only that one
+    album (searched for immediately), since indexers distribute music album-by-album or as
+    singles, never as a complete discography in one grab. Sits alongside the existing artist
+    search in the Request Music panel.
+  - Artist photos in Request Music still weren't showing up for every result even after v1.1.3.0's
+    fallback fix - many search results genuinely have no artist image cataloged by Lidarr's
+    metadata source at all (this is sparse for less well-known artists); no further fix possible
+    on the plugin side for those specific results.
+
   ## v1.1.3.0
   - Fix: artist photos often didn't show up in Request Music search results, since Lidarr only
     fills in its "poster" image for artists that have one - many not-yet-added artists don't.

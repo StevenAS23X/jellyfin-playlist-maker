@@ -36,6 +36,29 @@ public interface ILidarrService
     Task RequestArtist(string foreignArtistId, string artistName, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Searches Lidarr's metadata source for albums/singles matching the given title.
+    /// </summary>
+    /// <param name="term">The search text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Matching albums.</returns>
+    Task<IReadOnlyList<LidarrAlbumDto>> SearchAlbums(string term, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Requests a single album be added to Lidarr, without pulling in the rest of the artist's
+    /// discography: the artist is added (if not already present) with monitoring limited to just
+    /// this album, which is then monitored and searched for immediately. This matches how
+    /// indexers actually distribute music - album by album or as standalone singles, never as a
+    /// complete discography in one release.
+    /// </summary>
+    /// <param name="foreignAlbumId">The MusicBrainz release-group id from a search result.</param>
+    /// <param name="artistForeignArtistId">The owning artist's MusicBrainz id.</param>
+    /// <param name="artistName">The artist name, for a clearer error message on failure.</param>
+    /// <param name="albumTitle">The album title, for a clearer error message on failure.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task that completes when the request has been made.</returns>
+    Task RequestAlbum(string foreignAlbumId, string artistForeignArtistId, string artistName, string albumTitle, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets Lidarr's configured root folders, for the admin settings dropdown.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>

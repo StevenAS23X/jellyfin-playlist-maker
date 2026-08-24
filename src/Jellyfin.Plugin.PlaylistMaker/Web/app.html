@@ -731,6 +731,13 @@
             min-height: 0;
         }
 
+        .pmk-requestSubheading {
+            margin: 1.2em 0 0.2em;
+            padding-top: 1em;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 1em;
+        }
+
         .pmk-browse {
             margin-top: 1.5em;
             min-height: 0;
@@ -1017,12 +1024,28 @@
 
         <section class="pmk-panel pmk-requestMusic" id="pmkRequestMusicPanel" hidden>
             <h2>Request Music</h2>
+            <p class="pmk-subtitle">
+                Requesting an artist monitors and searches for their whole discography. If you
+                just want one album or single - which is how most indexers actually have music
+                anyway - search for it by title below instead.
+            </p>
+
+            <h3 class="pmk-requestSubheading">Request an Artist</h3>
             <p class="pmk-subtitle">Don't have an artist in your library? Search for them here and request they be added.</p>
             <div class="pmk-searchRow">
                 <input id="pmkRequestSearchInput" type="text" placeholder="Search for an artist to request&hellip;" class="pmk-searchInput" />
             </div>
             <div class="pmk-requestResults" id="pmkRequestResults">
                 <p class="pmk-empty">Search above for an artist.</p>
+            </div>
+
+            <h3 class="pmk-requestSubheading">Request an Album</h3>
+            <p class="pmk-subtitle">Search by album or single title to request just that release, not the whole artist.</p>
+            <div class="pmk-searchRow">
+                <input id="pmkAlbumRequestSearchInput" type="text" placeholder="Search for an album or single to request&hellip;" class="pmk-searchInput" />
+            </div>
+            <div class="pmk-requestResults" id="pmkAlbumRequestResults">
+                <p class="pmk-empty">Search above for an album.</p>
             </div>
         </section>
     </div>
@@ -1067,6 +1090,7 @@
             loadedEntryIdByTrackId: {},
             lastShownRecommendedIds: [],
             requestSearchTimer: null,
+            albumRequestSearchTimer: null,
             quickConnectSecret: null,
             quickConnectTimer: null,
             playingTrackId: null,
@@ -2007,6 +2031,118 @@
             });
         }
 
+        function buildAlbumRequestRow(album) {
+            var row = document.createElement('div');
+            row.className = 'pmk-requestRow';
+
+            var art = document.createElement('div');
+            art.className = 'pmk-requestArt';
+            if (album.ImageUrl) {
+                var img = document.createElement('img');
+                img.src = album.ImageUrl;
+                img.alt = '';
+                img.loading = 'lazy';
+                art.appendChild(img);
+            }
+            row.appendChild(art);
+
+            var info = document.createElement('div');
+            info.className = 'pmk-requestInfo';
+
+            var name = document.createElement('div');
+            name.className = 'pmk-requestName';
+            name.textContent = album.Title + (album.Disambiguation ? ' (' + album.Disambiguation + ')' : '');
+            info.appendChild(name);
+
+            var meta = document.createElement('div');
+            meta.className = 'pmk-requestMeta';
+            var metaParts = [album.ArtistName];
+            if (album.AlbumType) {
+                metaParts.push(album.AlbumType);
+            }
+            if (album.ReleaseDate) {
+                metaParts.push(String(album.ReleaseDate).slice(0, 4));
+            }
+            meta.textContent = metaParts.join(' • ');
+            info.appendChild(meta);
+
+            row.appendChild(info);
+
+            var action = document.createElement('button');
+            action.type = 'button';
+            action.className = 'pmk-requestAction';
+            action.textContent = 'Request';
+
+            var actionMessage = document.createElement('div');
+            actionMessage.className = 'pmk-requestActionMessage';
+
+            action.addEventListener('click', function () {
+                action.disabled = true;
+                action.textContent = 'Requesting…';
+                actionMessage.textContent = '';
+                apiPost('/PlaylistMaker/MusicRequests/Albums', {
+                    UserId: state.userId,
+                    ForeignAlbumId: album.ForeignAlbumId,
+                    ArtistForeignArtistId: album.ArtistForeignArtistId,
+                    ArtistName: album.ArtistName,
+                    AlbumTitle: album.Title
+                }).then(function () {
+                    action.textContent = 'Requested';
+                    action.className = 'pmk-requestAction pmk-requestActionDone';
+                }).catch(function (err) {
+                    action.disabled = false;
+                    action.className = 'pmk-requestAction pmk-requestActionError';
+                    if (err && err.status === 429) {
+                        action.textContent = 'Limit reached';
+                        actionMessage.textContent = err.message;
+                    } else {
+                        action.textContent = 'Try again';
+                    }
+                });
+            });
+            var actionWrap = document.createElement('div');
+            actionWrap.className = 'pmk-requestActionWrap';
+            actionWrap.appendChild(action);
+            actionWrap.appendChild(actionMessage);
+            row.appendChild(actionWrap);
+
+            return row;
+        }
+
+        function runAlbumRequestSearch() {
+            var resultsEl = document.getElementById('pmkAlbumRequestResults');
+            var term = document.getElementById('pmkAlbumRequestSearchInput').value.trim();
+
+            if (!term) {
+                clearChildren(resultsEl);
+                var empty = document.createElement('p');
+                empty.className = 'pmk-empty';
+                empty.textContent = 'Search above for an album.';
+                resultsEl.appendChild(empty);
+                return;
+            }
+
+            apiGet('/PlaylistMaker/MusicRequests/Albums/Search', { term: term }).then(function (albums) {
+                clearChildren(resultsEl);
+                if (!albums || albums.length === 0) {
+                    var none = document.createElement('p');
+                    none.className = 'pmk-empty';
+                    none.textContent = 'No albums found.';
+                    resultsEl.appendChild(none);
+                    return;
+                }
+                albums.forEach(function (album) {
+                    resultsEl.appendChild(buildAlbumRequestRow(album));
+                });
+            }).catch(function () {
+                clearChildren(resultsEl);
+                var err = document.createElement('p');
+                err.className = 'pmk-empty';
+                err.textContent = 'Search failed. Try again.';
+                resultsEl.appendChild(err);
+            });
+        }
+
         function initRequestMusic() {
             apiGet('/PlaylistMaker/MusicRequests/Enabled').then(function (enabled) {
                 var panel = document.getElementById('pmkRequestMusicPanel');
@@ -2018,6 +2154,11 @@
                 input.addEventListener('input', function () {
                     window.clearTimeout(state.requestSearchTimer);
                     state.requestSearchTimer = window.setTimeout(runRequestMusicSearch, 300);
+                });
+                var albumInput = document.getElementById('pmkAlbumRequestSearchInput');
+                albumInput.addEventListener('input', function () {
+                    window.clearTimeout(state.albumRequestSearchTimer);
+                    state.albumRequestSearchTimer = window.setTimeout(runAlbumRequestSearch, 300);
                 });
             }).catch(function () { /* feature not available - leave hidden */ });
         }

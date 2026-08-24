@@ -447,6 +447,63 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Searches Lidarr for albums/singles matching the given title, to request just that release
+    /// be added rather than an artist's whole discography.
+    /// </summary>
+    /// <param name="term">The search text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Matching albums.</returns>
+    [HttpGet("MusicRequests/Albums/Search")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<LidarrAlbumDto>>> SearchAlbumRequests(
+        [FromQuery] string term,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await _lidarrService.SearchAlbums(term, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Requests that a single album be added to Lidarr (monitored, searching immediately), without
+    /// monitoring or searching for the rest of that artist's discography.
+    /// </summary>
+    /// <param name="request">The album to request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content on success.</returns>
+    [HttpPost("MusicRequests/Albums")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult> RequestAlbum(
+        [FromBody] AlbumRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!_requestRateLimiter.TryRecordRequest(request.UserId, out var retryAfter))
+        {
+            var minutes = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalMinutes));
+            Response.Headers["Retry-After"] = ((int)retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return StatusCode(
+                StatusCodes.Status429TooManyRequests,
+                $"You've hit the request limit. Try again in about {minutes} minute{(minutes == 1 ? string.Empty : "s")}.");
+        }
+
+        try
+        {
+            await _lidarrService.RequestAlbum(
+                request.ForeignAlbumId,
+                request.ArtistForeignArtistId,
+                request.ArtistName,
+                request.AlbumTitle,
+                cancellationToken).ConfigureAwait(false);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Album request failed for {AlbumTitle}", request.AlbumTitle);
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Gets Lidarr's configured root folders, for the admin settings page.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>

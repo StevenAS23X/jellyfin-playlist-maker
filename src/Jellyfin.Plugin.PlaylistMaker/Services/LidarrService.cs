@@ -16,10 +16,7 @@ public class LidarrService : ILidarrService
 {
     private const string ApiKeyHeader = "X-Api-Key";
 
-    // Lidarr only populates RemotePoster from a "poster"-typed image, which many artists in a
-    // fresh lookup (not yet added to Lidarr) simply don't have - most only have "fanart" or
-    // "banner" available from their metadata source. Fall back through other cover types instead
-    // of leaving the row blank.
+    // Preference order for ResolveImageUrl's fallback below.
     private static readonly string[] PreferredImageTypes =
     {
         "poster", "cover", "fanart", "banner", "logo", "clearlogo", "screenshot", "headshot", "disc"
@@ -78,26 +75,60 @@ public class LidarrService : ILidarrService
                 ArtistName = r.ArtistName ?? string.Empty,
                 Disambiguation = r.Disambiguation,
                 Overview = r.Overview,
-                ImageUrl = ResolveImageUrl(r)
+                ImageUrl = ResolveImageUrl(r.RemotePoster, r.Images)
             })
             .ToList();
     }
 
-    private static string? ResolveImageUrl(LidarrArtistLookupResult result)
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<LidarrAlbumDto>> SearchAlbums(string term, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(result.RemotePoster))
+        if (!IsConfigured || string.IsNullOrWhiteSpace(term))
         {
-            return result.RemotePoster;
+            return Array.Empty<LidarrAlbumDto>();
         }
 
-        if (result.Images is null || result.Images.Count == 0)
+        var results = await GetAsync<List<LidarrAlbumLookupResult>>(
+            "/api/v1/album/lookup?term=" + Uri.EscapeDataString(term),
+            cancellationToken).ConfigureAwait(false);
+
+        return (results ?? new List<LidarrAlbumLookupResult>())
+            .Where(r => !string.IsNullOrWhiteSpace(r.ForeignAlbumId)
+                && r.Artist is not null
+                && !string.IsNullOrWhiteSpace(r.Artist.ForeignArtistId))
+            .Select(r => new LidarrAlbumDto
+            {
+                ForeignAlbumId = r.ForeignAlbumId,
+                Title = r.Title ?? string.Empty,
+                Disambiguation = r.Disambiguation,
+                AlbumType = r.AlbumType,
+                ArtistName = r.Artist!.ArtistName ?? string.Empty,
+                ArtistForeignArtistId = r.Artist!.ForeignArtistId,
+                ReleaseDate = r.ReleaseDate,
+                ImageUrl = ResolveImageUrl(r.RemoteCover, r.Images)
+            })
+            .ToList();
+    }
+
+    // Lidarr only fills in RemotePoster/RemoteCover from a single specific image type, which many
+    // search results (not yet added to Lidarr) simply don't have - most only have "fanart" or
+    // "banner"/"cover" available from their metadata source. Fall back through other cover types
+    // instead of leaving the row blank.
+    private static string? ResolveImageUrl(string? primaryImageUrl, List<LidarrImageResult>? images)
+    {
+        if (!string.IsNullOrWhiteSpace(primaryImageUrl))
+        {
+            return primaryImageUrl;
+        }
+
+        if (images is null || images.Count == 0)
         {
             return null;
         }
 
         foreach (var preferredType in PreferredImageTypes)
         {
-            var match = result.Images.FirstOrDefault(i =>
+            var match = images.FirstOrDefault(i =>
                 string.Equals(i.CoverType, preferredType, StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(i.RemoteUrl));
             if (match is not null)
@@ -106,7 +137,7 @@ public class LidarrService : ILidarrService
             }
         }
 
-        return result.Images.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.RemoteUrl))?.RemoteUrl;
+        return images.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.RemoteUrl))?.RemoteUrl;
     }
 
     /// <inheritdoc />
@@ -147,6 +178,66 @@ public class LidarrService : ILidarrService
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException(
                 $"Lidarr rejected the request for \"{artistName}\" ({(int)response.StatusCode}): {errorBody}");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task RequestAlbum(
+        string foreignAlbumId,
+        string artistForeignArtistId,
+        string artistName,
+        string albumTitle,
+        CancellationToken cancellationToken)
+    {
+        if (!IsConfigured)
+        {
+            throw new InvalidOperationException("Lidarr is not configured.");
+        }
+
+        var config = Config;
+
+        // Unlike RequestArtist, the artist here is only added as a container for this one album -
+        // Monitor "none" plus AlbumsToMonitor scoped to just this release means Lidarr won't pull
+        // in or search for the rest of the artist's discography once it refreshes their metadata.
+        var body = new LidarrAddAlbumRequest
+        {
+            ForeignAlbumId = foreignAlbumId,
+            Monitored = true,
+            AddOptions = new LidarrAddAlbumOptions
+            {
+                SearchForNewAlbum = true
+            },
+            Artist = new LidarrAddArtistRequest
+            {
+                ArtistName = artistName,
+                ForeignArtistId = artistForeignArtistId,
+                QualityProfileId = config.LidarrQualityProfileId,
+                MetadataProfileId = config.LidarrMetadataProfileId,
+                RootFolderPath = config.LidarrRootFolderPath,
+                Monitored = true,
+                MonitorNewItems = "none",
+                AddOptions = new LidarrAddArtistOptions
+                {
+                    Monitor = "none",
+                    AlbumsToMonitor = new List<string> { foreignAlbumId },
+                    SearchForMissingAlbums = false
+                }
+            }
+        };
+
+        var client = _httpClientFactory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(config.LidarrBaseUrl, "/api/v1/album"))
+        {
+            Content = JsonContent.Create(body, options: JsonOptions)
+        };
+        request.Headers.Add(ApiKeyHeader, config.LidarrApiKey);
+
+        using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException(
+                $"Lidarr rejected the request for \"{albumTitle}\" ({(int)response.StatusCode}): {errorBody}");
         }
     }
 
@@ -226,6 +317,32 @@ public class LidarrService : ILidarrService
         public string? RemoteUrl { get; set; }
     }
 
+    private sealed class LidarrAlbumLookupResult
+    {
+        public string Title { get; set; } = string.Empty;
+
+        public string ForeignAlbumId { get; set; } = string.Empty;
+
+        public string? Disambiguation { get; set; }
+
+        public string? AlbumType { get; set; }
+
+        public DateTime? ReleaseDate { get; set; }
+
+        public string? RemoteCover { get; set; }
+
+        public List<LidarrImageResult>? Images { get; set; }
+
+        public LidarrAlbumArtistResult? Artist { get; set; }
+    }
+
+    private sealed class LidarrAlbumArtistResult
+    {
+        public string ArtistName { get; set; } = string.Empty;
+
+        public string ForeignArtistId { get; set; } = string.Empty;
+    }
+
     private sealed class LidarrRootFolderResult
     {
         public string? Path { get; set; }
@@ -261,6 +378,27 @@ public class LidarrService : ILidarrService
     {
         public string Monitor { get; set; } = "all";
 
+        // Only set for a single-album request: restricts which of the artist's albums get
+        // monitored once Lidarr refreshes their full discography, instead of Monitor alone
+        // (which only supports library-wide rules like "all"/"none"/"future").
+        public List<string>? AlbumsToMonitor { get; set; }
+
         public bool SearchForMissingAlbums { get; set; }
+    }
+
+    private sealed class LidarrAddAlbumRequest
+    {
+        public string ForeignAlbumId { get; set; } = string.Empty;
+
+        public bool Monitored { get; set; }
+
+        public LidarrAddAlbumOptions AddOptions { get; set; } = new();
+
+        public LidarrAddArtistRequest Artist { get; set; } = new();
+    }
+
+    private sealed class LidarrAddAlbumOptions
+    {
+        public bool SearchForNewAlbum { get; set; }
     }
 }
