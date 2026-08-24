@@ -9,8 +9,15 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.0.0"
+version: "1.1.1.0"
 changelog: |
+  ## v1.1.1.0
+  - Fix: searching was very slow (and could time out with no results) because genre matching
+    pulled every track in the library into memory on every keystroke to check each one's genres
+    by hand. Genre matching now uses the same indexed lookup the album match already used (search
+    the genre entities by name, then filter tracks by id), which is how Jellyfin's own search
+    stays fast at any library size.
+
   ## v1.1.0.0
   - Add "Request Music": search Lidarr and request an artist be added to the library, directly
     from the standalone app - the same self-service pattern as Jellyseerr/Overseerr for movies

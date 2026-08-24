@@ -85,8 +85,32 @@ public class RecommendationService : IRecommendationService
 
         // Neither of the above matches by genre - someone typing "rock" expects rock tracks back,
         // the same way picking the "Rock" chip would, not just tracks/albums literally named "rock".
-        var genreTrackMatches = GetAllTracks(user)
-            .Where(t => TrackDtoMapper.GetGenreNames(t).Any(g => g.Contains(query, StringComparison.OrdinalIgnoreCase)));
+        // Mirrors the album lookup above (search the indexed genre entities by name, then filter
+        // tracks by GenreIds) rather than pulling every track in the library into memory to check
+        // each one's genres by hand - that full-library scan was the actual cause of Search being
+        // slow, since it ran on every keystroke regardless of how the query matched.
+        var genreQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicGenre },
+            Recursive = true,
+            SearchTerm = query,
+            Limit = 5
+        };
+        var genreIds = _libraryManager.GetItemList(genreQuery).Select(g => g.Id).ToArray();
+
+        IEnumerable<Audio> genreTrackMatches = Array.Empty<Audio>();
+        if (genreIds.Length > 0)
+        {
+            var genreTrackQuery = new InternalItemsQuery(user)
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Audio },
+                Recursive = true,
+                IsVirtualItem = false,
+                GenreIds = genreIds,
+                Limit = limit * 3
+            };
+            genreTrackMatches = _libraryManager.GetItemList(genreTrackQuery).OfType<Audio>();
+        }
 
         return DedupeBySong(trackMatches.Concat(albumTrackMatches).Concat(genreTrackMatches))
             .Take(limit)
