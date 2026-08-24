@@ -145,16 +145,16 @@ tag is pushed, and publishes/updates `manifest.json` + the built plugin zip on t
 ## Releasing a new version
 
 Bump the `version` in `src/Jellyfin.Plugin.PlaylistMaker/build.yaml` (and add a
-changelog entry there), commit, then tag and push:
+changelog entry there), commit, and push to the branch — that's the whole
+process now.
 
-```bash
-git tag v1.0.2.0
-git push origin v1.0.2.0
-```
-
-The `publish-repo` workflow builds that tag, packages it, and updates
+The `auto-tag` workflow watches for `build.yaml` changing on push and tags the
+commit (`vX.Y.Z.W`, matching the new version) automatically. That tag push
+triggers `publish-repo`, which builds it, packages it, and updates
 `manifest.json` on `gh-pages`. Anyone who already added the repository URL in
-Jellyfin sees the update in their catalog automatically — nothing else to do.
+Jellyfin sees the update in their catalog automatically. No manual
+`git tag`/`git push origin <tag>` step, and nothing machine-specific — a plain
+`git push` of the branch from anywhere is enough.
 
 ## Configuration
 

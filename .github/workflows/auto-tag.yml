@@ -1,0 +1,47 @@
+name: Auto-tag release
+
+# Whenever build.yaml's version changes on this branch, tag that commit and push the tag - which
+# in turn triggers publish-repo.yml, so a version bump is the only manual step in a release. No
+# separate `git tag` / `git push` step needed on any machine.
+
+on:
+  push:
+    branches:
+      - claude/jellyfin-playlist-recommendations-mw7bkr
+    paths:
+      - 'src/Jellyfin.Plugin.PlaylistMaker/build.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from build.yaml
+        id: version
+        run: |
+          version=$(grep -m1 '^version:' src/Jellyfin.Plugin.PlaylistMaker/build.yaml | sed -E 's/version:\s*"([^"]+)"/\1/')
+          if [ -z "$version" ]; then
+            echo "::error::Could not parse version from build.yaml"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Tag and push if new
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists, nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$tag"
+          git push origin "$tag"
