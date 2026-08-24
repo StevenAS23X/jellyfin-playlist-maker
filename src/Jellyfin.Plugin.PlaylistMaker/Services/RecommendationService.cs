@@ -245,16 +245,9 @@ public class RecommendationService : IRecommendationService
             }
         }
 
-        foreach (var genre in seedGenres)
-        {
-            AddWeight(genreWeights, genre, config.GenreWeight * 2);
-        }
-
-        foreach (var artist in seedArtists)
-        {
-            AddWeight(artistWeights, artist, config.ArtistWeight * 2);
-        }
-
+        // Note: seedGenres/seedArtists (explicit chip picks) don't feed genreWeights/artistWeights
+        // here - a direct pick goes through the tiered path below instead of this continuous
+        // scoring model. This dictionary only ever reflects taste inferred from draft tracks.
         var candidates = allTracks.Where(t =>
             !excludeSet.Contains(t.Id) && !excludedSongKeys.Contains(TrackDtoMapper.SongKey(t)));
 
@@ -262,6 +255,37 @@ public class RecommendationService : IRecommendationService
         // so hitting refresh gives a genuinely different set instead of the same deterministic
         // top-N reordering slightly by a small jitter every time.
         var poolSize = Math.Max(effectiveLimit * 3, effectiveLimit + 20);
+
+        if (seedGenres.Count > 0 || seedArtists.Count > 0)
+        {
+            // Directly picking a genre/artist chip gets a qualitatively different mix than the
+            // continuous weighted scoring below: a fixed 60% exact / 20% adjacent / 20% wildcard
+            // split, so "Rock" surfaces mostly rock, some genre-adjacent picks, and a little true
+            // discovery - not just "everything that scores above zero, ranked". Also folds in any
+            // genres/artists from the current draft so an in-progress playlist's taste still
+            // counts toward what "exact" means.
+            var targetGenres = new HashSet<string>(seedGenres, StringComparer.OrdinalIgnoreCase);
+            var targetArtists = new HashSet<string>(seedArtists, StringComparer.OrdinalIgnoreCase);
+            foreach (var seedId in seedItemIds)
+            {
+                if (!tracksById.TryGetValue(seedId, out var seedTrack))
+                {
+                    continue;
+                }
+
+                foreach (var genre in TrackDtoMapper.GetGenreNames(seedTrack))
+                {
+                    targetGenres.Add(genre);
+                }
+
+                foreach (var artist in TrackDtoMapper.GetArtistNames(seedTrack))
+                {
+                    targetArtists.Add(artist);
+                }
+            }
+
+            return BuildTieredRecommendations(candidates, allTracks, targetGenres, targetArtists, effectiveLimit);
+        }
 
         if (genreWeights.Count == 0 && artistWeights.Count == 0)
         {
@@ -345,6 +369,203 @@ public class RecommendationService : IRecommendationService
             .Take(effectiveLimit)
             .Select(x => TrackDtoMapper.ToDto(x.Track, x.Reason))
             .ToList();
+    }
+
+    /// <summary>
+    /// Builds recommendations for a direct genre/artist pick as three fixed-proportion tiers:
+    /// ~60% tracks that directly match a picked genre or artist, ~20% "adjacent" tracks (genres
+    /// that frequently co-occur with the pick in this library, or artists who share those
+    /// genres), and ~20% wildcard tracks unrelated to the pick at all, for serendipitous
+    /// discovery. Each tier is internally shuffled from a scored pool the same way the
+    /// draft-based recommendations are, so repeated refreshes still vary.
+    /// </summary>
+    private IReadOnlyList<TrackDto> BuildTieredRecommendations(
+        IEnumerable<Audio> candidates,
+        IReadOnlyList<Audio> allTracks,
+        HashSet<string> targetGenres,
+        HashSet<string> targetArtists,
+        int effectiveLimit)
+    {
+        var adjacentGenres = ComputeAdjacentGenres(allTracks, targetGenres);
+        var adjacentArtists = ComputeAdjacentArtists(allTracks, targetGenres, targetArtists);
+
+        var exact = new List<Audio>();
+        var adjacent = new List<Audio>();
+        var wildcard = new List<Audio>();
+
+        foreach (var track in candidates)
+        {
+            var trackGenres = TrackDtoMapper.GetGenreNames(track).ToList();
+            var trackArtists = TrackDtoMapper.GetArtistNames(track).ToList();
+
+            if (trackGenres.Any(targetGenres.Contains) || trackArtists.Any(targetArtists.Contains))
+            {
+                exact.Add(track);
+            }
+            else if (trackGenres.Any(adjacentGenres.Contains) || trackArtists.Any(adjacentArtists.Contains))
+            {
+                adjacent.Add(track);
+            }
+            else
+            {
+                wildcard.Add(track);
+            }
+        }
+
+        Shuffle(exact);
+        Shuffle(adjacent);
+        Shuffle(wildcard);
+
+        var exactCount = (int)Math.Round(effectiveLimit * 0.6, MidpointRounding.AwayFromZero);
+        var adjacentCount = (int)Math.Round(effectiveLimit * 0.2, MidpointRounding.AwayFromZero);
+        var wildcardCount = Math.Max(effectiveLimit - exactCount - adjacentCount, 0);
+
+        var result = new List<TrackDto>(effectiveLimit);
+        result.AddRange(exact.Take(exactCount).Select(t => TrackDtoMapper.ToDto(t, ExactReason(t, targetGenres, targetArtists))));
+        result.AddRange(adjacent.Take(adjacentCount).Select(t => TrackDtoMapper.ToDto(t, AdjacentReason(t, adjacentGenres, adjacentArtists))));
+        result.AddRange(wildcard.Take(wildcardCount).Select(t => TrackDtoMapper.ToDto(t, "Something different")));
+
+        // Backfill from whichever tier has leftovers if a small library leaves us short of
+        // effectiveLimit overall (e.g. too few wildcard candidates), preferring closer tiers first.
+        var shortfall = effectiveLimit - result.Count;
+        if (shortfall > 0)
+        {
+            var leftovers = exact.Skip(exactCount)
+                .Concat(adjacent.Skip(adjacentCount))
+                .Concat(wildcard.Skip(wildcardCount))
+                .Take(shortfall);
+            result.AddRange(leftovers.Select(t => TrackDtoMapper.ToDto(t, "More like this")));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Finds genres that frequently co-occur with the target genres on the same tracks in this
+    /// library (e.g. tracks tagged "Rock" that are also often tagged "Alternative Rock"), as a
+    /// cheap stand-in for genre similarity without any external taxonomy.
+    /// </summary>
+    private static HashSet<string> ComputeAdjacentGenres(IReadOnlyList<Audio> allTracks, HashSet<string> targetGenres, int topPerGenre = 6)
+    {
+        var coOccurrence = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var track in allTracks)
+        {
+            var trackGenres = TrackDtoMapper.GetGenreNames(track).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var matchedTargets = trackGenres.Where(targetGenres.Contains);
+
+            foreach (var target in matchedTargets)
+            {
+                if (!coOccurrence.TryGetValue(target, out var bag))
+                {
+                    bag = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    coOccurrence[target] = bag;
+                }
+
+                foreach (var other in trackGenres)
+                {
+                    if (targetGenres.Contains(other))
+                    {
+                        continue;
+                    }
+
+                    bag[other] = bag.TryGetValue(other, out var count) ? count + 1 : 1;
+                }
+            }
+        }
+
+        var adjacent = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var bag in coOccurrence.Values)
+        {
+            foreach (var genre in bag.OrderByDescending(kv => kv.Value).Take(topPerGenre).Select(kv => kv.Key))
+            {
+                adjacent.Add(genre);
+            }
+        }
+
+        return adjacent;
+    }
+
+    /// <summary>
+    /// Finds artists "adjacent" to the target artists: other artists whose tracks share the most
+    /// genres with the target artists' tracks (or, if only genres were picked with no artist,
+    /// artists who work in the adjacent genres). Also a co-occurrence stand-in - Lidarr-style
+    /// "similar artist" data isn't something this library has on its own.
+    /// </summary>
+    private static HashSet<string> ComputeAdjacentArtists(
+        IReadOnlyList<Audio> allTracks,
+        HashSet<string> targetGenres,
+        HashSet<string> targetArtists,
+        int topArtists = 15)
+    {
+        var relatedGenres = new HashSet<string>(targetGenres, StringComparer.OrdinalIgnoreCase);
+
+        if (targetArtists.Count > 0)
+        {
+            foreach (var track in allTracks)
+            {
+                if (TrackDtoMapper.GetArtistNames(track).Any(targetArtists.Contains))
+                {
+                    foreach (var genre in TrackDtoMapper.GetGenreNames(track))
+                    {
+                        relatedGenres.Add(genre);
+                    }
+                }
+            }
+        }
+
+        if (relatedGenres.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var overlapCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var track in allTracks)
+        {
+            var overlap = TrackDtoMapper.GetGenreNames(track).Count(relatedGenres.Contains);
+            if (overlap == 0)
+            {
+                continue;
+            }
+
+            foreach (var artist in TrackDtoMapper.GetArtistNames(track))
+            {
+                if (targetArtists.Contains(artist))
+                {
+                    continue;
+                }
+
+                overlapCounts[artist] = overlapCounts.TryGetValue(artist, out var count) ? count + overlap : overlap;
+            }
+        }
+
+        return new HashSet<string>(
+            overlapCounts.OrderByDescending(kv => kv.Value).Take(topArtists).Select(kv => kv.Key),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string ExactReason(Audio track, HashSet<string> targetGenres, HashSet<string> targetArtists)
+    {
+        var artist = TrackDtoMapper.GetArtistNames(track).FirstOrDefault(targetArtists.Contains);
+        if (artist is not null)
+        {
+            return $"Because you like {artist}";
+        }
+
+        var genre = TrackDtoMapper.GetGenreNames(track).FirstOrDefault(targetGenres.Contains);
+        return genre is not null ? $"Tagged {genre}" : "Matches your pick";
+    }
+
+    private static string AdjacentReason(Audio track, HashSet<string> adjacentGenres, HashSet<string> adjacentArtists)
+    {
+        var artist = TrackDtoMapper.GetArtistNames(track).FirstOrDefault(adjacentArtists.Contains);
+        if (artist is not null)
+        {
+            return $"Similar artist: {artist}";
+        }
+
+        var genre = TrackDtoMapper.GetGenreNames(track).FirstOrDefault(adjacentGenres.Contains);
+        return genre is not null ? $"Genre-adjacent: {genre}" : "Related pick";
     }
 
     /// <summary>

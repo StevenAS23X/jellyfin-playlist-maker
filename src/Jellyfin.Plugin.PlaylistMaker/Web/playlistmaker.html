@@ -104,6 +104,47 @@
                     color: #fff;
                 }
 
+                .pmk-browse {
+                    margin-top: 1.5em;
+                    min-height: 0;
+                }
+
+                .pmk-browseColumns {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1.5em;
+                }
+
+                @media (max-width: 60em) {
+                    .pmk-browseColumns {
+                        grid-template-columns: 1fr;
+                    }
+                }
+
+                .pmk-browseGroupHeader {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 0.8em;
+                    margin-bottom: 0.5em;
+                }
+
+                .pmk-browseGroupHeader .pmk-chipLabel {
+                    font-size: 0.9em;
+                    margin-right: 0;
+                    flex-shrink: 0;
+                }
+
+                .pmk-filterInput {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .pmk-chipEmpty {
+                    font-size: 0.85em;
+                    opacity: 0.55;
+                }
+
                 .pmk-results {
                     flex: 1;
                     overflow-y: auto;
@@ -294,25 +335,27 @@
                         <select is="emby-select" id="pmkLidarrMetadataProfile" label="Metadata Profile"></select>
                     </div>
 
+                    <div class="inputContainer">
+                        <input is="emby-input" id="pmkMaxRequestsPerUser" type="number" min="0" step="1" label="Max requests per user" />
+                        <div class="fieldDescription">How many artist requests a single user may make within the time window below. 0 means unlimited.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" id="pmkRequestWindowHours" type="number" min="1" step="1" label="Time window (hours)" />
+                        <div class="fieldDescription">The rolling time period the request limit above applies to.</div>
+                    </div>
+
                     <button is="emby-button" type="button" id="pmkLidarrSaveButton" class="raised button-submit">Save Music Request Settings</button>
                     <div class="pmk-status" id="pmkLidarrSaveStatus"></div>
                 </section>
 
                 <div class="pmk-columns">
 
-                    <!-- Discover / search column -->
+                    <!-- Search column -->
                     <section class="pmk-panel pmk-discover">
-                        <h2>Discover</h2>
+                        <h2>Search</h2>
 
                         <div class="pmk-searchRow">
                             <input is="emby-input" id="pmkSearchInput" type="text" placeholder="Search tracks, artists, albums&hellip;" class="pmk-searchInput" />
-                        </div>
-
-                        <div class="pmk-chipGroup" id="pmkGenreChips">
-                            <span class="pmk-chipLabel">Genres</span>
-                        </div>
-                        <div class="pmk-chipGroup" id="pmkArtistChips">
-                            <span class="pmk-chipLabel">Artists</span>
                         </div>
 
                         <div class="pmk-results" id="pmkSearchResults">
@@ -335,7 +378,7 @@
                         <div class="pmk-draftSummary" id="pmkDraftSummary">0 tracks</div>
 
                         <ol class="pmk-draftList" id="pmkDraftList">
-                            <li class="pmk-empty">Add tracks from Discover or Recommended to build your playlist.</li>
+                            <li class="pmk-empty">Add tracks from Search or Recommended to build your playlist.</li>
                         </ol>
 
                         <button is="emby-button" type="button" id="pmkSaveButton" class="raised button-submit pmk-saveButton" disabled>
@@ -357,6 +400,27 @@
                     </section>
 
                 </div>
+
+                <section class="pmk-panel pmk-browse">
+                    <h2>Browse by Genre &amp; Artist</h2>
+                    <p class="pmk-subtitle">Pick a genre or artist to fill Search and Recommended For You with a tailored mix.</p>
+                    <div class="pmk-browseColumns">
+                        <div class="pmk-browseGroup">
+                            <div class="pmk-browseGroupHeader">
+                                <span class="pmk-chipLabel">Genres</span>
+                                <input is="emby-input" id="pmkGenreFilterInput" type="text" placeholder="Filter genres&hellip;" class="pmk-filterInput" />
+                            </div>
+                            <div class="pmk-chipGroup" id="pmkGenreChips"></div>
+                        </div>
+                        <div class="pmk-browseGroup">
+                            <div class="pmk-browseGroupHeader">
+                                <span class="pmk-chipLabel">Artists</span>
+                                <input is="emby-input" id="pmkArtistFilterInput" type="text" placeholder="Filter artists&hellip;" class="pmk-filterInput" />
+                            </div>
+                            <div class="pmk-chipGroup" id="pmkArtistChips"></div>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <script type="text/javascript">
@@ -497,30 +561,57 @@
                         });
                     }
 
-                    function renderChips(container, label, items, selectedSet) {
-                        clearChildren(container);
-                        var labelEl = document.createElement('span');
-                        labelEl.className = 'pmk-chipLabel';
-                        labelEl.textContent = label;
-                        container.appendChild(labelEl);
+                    // Strips everything but letters/digits before comparing, so "sam's", "sams",
+                    // and "sams'" are all treated as the same search term instead of punctuation
+                    // blocking the match.
+                    function normalizeForSearch(text) {
+                        return (text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    }
 
-                        items.slice(0, CHIP_LIMIT).forEach(function (item) {
-                            var chip = document.createElement('button');
-                            chip.type = 'button';
-                            chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
-                            chip.textContent = item;
-                            chip.title = item;
-                            chip.addEventListener('click', function () {
-                                if (selectedSet.has(item)) {
-                                    selectedSet.delete(item);
-                                } else {
-                                    selectedSet.add(item);
-                                }
-                                chip.classList.toggle('pmk-chipActive');
-                                scheduleRecommendationRefresh(0);
+                    function renderChips(container, label, items, selectedSet, filterInput) {
+                        function render() {
+                            clearChildren(container);
+                            var labelEl = document.createElement('span');
+                            labelEl.className = 'pmk-chipLabel';
+                            labelEl.textContent = label;
+                            container.appendChild(labelEl);
+
+                            var query = filterInput ? normalizeForSearch(filterInput.value) : '';
+                            var filtered = query
+                                ? items.filter(function (item) { return normalizeForSearch(item).indexOf(query) !== -1; })
+                                : items;
+
+                            if (query && filtered.length === 0) {
+                                var empty = document.createElement('span');
+                                empty.className = 'pmk-chipEmpty';
+                                empty.textContent = 'No matches.';
+                                container.appendChild(empty);
+                            }
+
+                            filtered.slice(0, CHIP_LIMIT).forEach(function (item) {
+                                var chip = document.createElement('button');
+                                chip.type = 'button';
+                                chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
+                                chip.textContent = item;
+                                chip.title = item;
+                                chip.addEventListener('click', function () {
+                                    if (selectedSet.has(item)) {
+                                        selectedSet.delete(item);
+                                    } else {
+                                        selectedSet.add(item);
+                                    }
+                                    chip.classList.toggle('pmk-chipActive');
+                                    scheduleRecommendationRefresh(0);
+                                });
+                                container.appendChild(chip);
                             });
-                            container.appendChild(chip);
-                        });
+                        }
+
+                        if (filterInput) {
+                            filterInput.addEventListener('input', render);
+                        }
+
+                        render();
                     }
 
                     function draftIds() {
@@ -534,7 +625,7 @@
 
                         renderList(listEl, state.draft, {
                             remove: true,
-                            emptyText: 'Add tracks from Discover or Recommended to build your playlist.',
+                            emptyText: 'Add tracks from Search or Recommended to build your playlist.',
                             onClick: function (track) { removeFromDraft(track.Id); }
                         });
 
@@ -620,11 +711,15 @@
 
                     function loadFacets() {
                         apiGet('PlaylistMaker/Genres', { userId: state.userId }).then(function (genres) {
-                            renderChips(pageEl.querySelector('#pmkGenreChips'), 'Genres', genres || [], state.selectedGenres);
+                            renderChips(
+                                pageEl.querySelector('#pmkGenreChips'), 'Genres', genres || [], state.selectedGenres,
+                                pageEl.querySelector('#pmkGenreFilterInput'));
                         }).catch(function () { /* non-fatal */ });
 
                         apiGet('PlaylistMaker/Artists', { userId: state.userId }).then(function (artists) {
-                            renderChips(pageEl.querySelector('#pmkArtistChips'), 'Artists', artists || [], state.selectedArtists);
+                            renderChips(
+                                pageEl.querySelector('#pmkArtistChips'), 'Artists', artists || [], state.selectedArtists,
+                                pageEl.querySelector('#pmkArtistFilterInput'));
                         }).catch(function () { /* non-fatal */ });
                     }
 
@@ -707,6 +802,8 @@
                             pageEl.querySelector('#pmkLidarrEnabled').checked = !!config.LidarrEnabled;
                             pageEl.querySelector('#pmkLidarrBaseUrl').value = config.LidarrBaseUrl || '';
                             pageEl.querySelector('#pmkLidarrApiKey').value = config.LidarrApiKey || '';
+                            pageEl.querySelector('#pmkMaxRequestsPerUser').value = config.MaxRequestsPerUser || 0;
+                            pageEl.querySelector('#pmkRequestWindowHours').value = config.RequestWindowHours || 24;
 
                             if (config.LidarrBaseUrl && config.LidarrApiKey) {
                                 return loadLidarrOptions(config);
@@ -747,6 +844,8 @@
                         config.LidarrRootFolderPath = pageEl.querySelector('#pmkLidarrRootFolder').value || '';
                         config.LidarrQualityProfileId = parseInt(pageEl.querySelector('#pmkLidarrQualityProfile').value, 10) || 0;
                         config.LidarrMetadataProfileId = parseInt(pageEl.querySelector('#pmkLidarrMetadataProfile').value, 10) || 0;
+                        config.MaxRequestsPerUser = parseInt(pageEl.querySelector('#pmkMaxRequestsPerUser').value, 10) || 0;
+                        config.RequestWindowHours = parseInt(pageEl.querySelector('#pmkRequestWindowHours').value, 10) || 24;
 
                         saveStatusEl.textContent = 'Saving…';
                         saveStatusEl.className = 'pmk-status';

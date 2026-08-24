@@ -731,6 +731,58 @@
             min-height: 0;
         }
 
+        .pmk-browse {
+            margin-top: 1.5em;
+            min-height: 0;
+        }
+
+        .pmk-browseColumns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5em;
+        }
+
+        @media (max-width: 40em) {
+            .pmk-browseColumns {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pmk-browseGroupHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.8em;
+            margin-bottom: 0.5em;
+        }
+
+        .pmk-browseGroupHeader .pmk-chipLabel {
+            font-size: 0.9em;
+            margin-right: 0;
+            flex-shrink: 0;
+        }
+
+        .pmk-filterInput {
+            flex: 1;
+            min-width: 0;
+            padding: 0.4em 0.7em;
+            border-radius: 0.4em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
+            font-size: 0.85em;
+        }
+
+        .pmk-filterInput:focus {
+            outline: none;
+            border-color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-chipEmpty {
+            font-size: 0.85em;
+            color: #888;
+        }
+
         .pmk-requestResults {
             max-height: 30em;
             overflow-y: auto;
@@ -746,6 +798,21 @@
 
         .pmk-requestRow:last-child {
             border-bottom: none;
+        }
+
+        .pmk-requestActionWrap {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.3em;
+            flex-shrink: 0;
+        }
+
+        .pmk-requestActionMessage {
+            font-size: 0.75em;
+            color: #e0a03a;
+            text-align: right;
+            max-width: 14em;
         }
 
         .pmk-requestArt {
@@ -863,19 +930,12 @@
 
         <div class="pmk-columns">
 
-            <!-- Discover / search column -->
+            <!-- Search column -->
             <section class="pmk-panel pmk-discover">
-                <h2>Discover</h2>
+                <h2>Search</h2>
 
                 <div class="pmk-searchRow">
                     <input id="pmkSearchInput" type="text" placeholder="Search tracks, artists, albums&hellip;" class="pmk-searchInput" />
-                </div>
-
-                <div class="pmk-chipGroup" id="pmkGenreChips">
-                    <span class="pmk-chipLabel">Genres</span>
-                </div>
-                <div class="pmk-chipGroup" id="pmkArtistChips">
-                    <span class="pmk-chipLabel">Artists</span>
                 </div>
 
                 <div class="pmk-results" id="pmkSearchResults">
@@ -911,7 +971,7 @@
                 </div>
 
                 <ol class="pmk-draftList" id="pmkDraftList">
-                    <li class="pmk-empty">Add tracks from Discover or Recommended to build your playlist.</li>
+                    <li class="pmk-empty">Add tracks from Search or Recommended to build your playlist.</li>
                 </ol>
 
                 <button type="button" id="pmkSaveButton" class="pmk-saveButton" disabled>
@@ -933,6 +993,27 @@
             </section>
 
         </div>
+
+        <section class="pmk-panel pmk-browse" id="pmkBrowsePanel">
+            <h2>Browse by Genre &amp; Artist</h2>
+            <p class="pmk-subtitle">Pick a genre or artist to fill Search and Recommended For You with a tailored mix.</p>
+            <div class="pmk-browseColumns">
+                <div class="pmk-browseGroup">
+                    <div class="pmk-browseGroupHeader">
+                        <span class="pmk-chipLabel">Genres</span>
+                        <input id="pmkGenreFilterInput" type="text" placeholder="Filter genres&hellip;" class="pmk-filterInput" />
+                    </div>
+                    <div class="pmk-chipGroup" id="pmkGenreChips"></div>
+                </div>
+                <div class="pmk-browseGroup">
+                    <div class="pmk-browseGroupHeader">
+                        <span class="pmk-chipLabel">Artists</span>
+                        <input id="pmkArtistFilterInput" type="text" placeholder="Filter artists&hellip;" class="pmk-filterInput" />
+                    </div>
+                    <div class="pmk-chipGroup" id="pmkArtistChips"></div>
+                </div>
+            </div>
+        </section>
 
         <section class="pmk-panel pmk-requestMusic" id="pmkRequestMusicPanel" hidden>
             <h2>Request Music</h2>
@@ -1050,7 +1131,11 @@
                 body: JSON.stringify(body)
             }).then(function (response) {
                 if (!response.ok) {
-                    throw new Error('Request failed (' + response.status + ')');
+                    return response.text().then(function (text) {
+                        var error = new Error(text || ('Request failed (' + response.status + ')'));
+                        error.status = response.status;
+                        throw error;
+                    });
                 }
                 return response.status === 204 ? null : response.json();
             });
@@ -1344,10 +1429,24 @@
             });
         }
 
-        function renderChips(container, label, items, selectedSet) {
+        // Strips everything but letters/digits before comparing, so "sam's", "sams", and "sams'"
+        // are all treated as the same search term instead of punctuation blocking the match.
+        function normalizeForSearch(text) {
+            return (text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
+        function renderChips(container, label, items, selectedSet, filterInput) {
             // Collapsed to a small default set (picked items always shown) instead of dumping
             // every genre/artist in the library as a giant wall of chips.
             var expanded = false;
+
+            function matchingItems() {
+                var query = filterInput ? normalizeForSearch(filterInput.value) : '';
+                if (!query) {
+                    return items;
+                }
+                return items.filter(function (item) { return normalizeForSearch(item).indexOf(query) !== -1; });
+            }
 
             function render() {
                 clearChildren(container);
@@ -1356,16 +1455,25 @@
                 labelEl.textContent = label;
                 container.appendChild(labelEl);
 
-                var capped = items.slice(0, CHIP_LIMIT);
+                var isFiltering = !!(filterInput && filterInput.value.trim());
+                var filtered = matchingItems();
+                var capped = filtered.slice(0, CHIP_LIMIT);
                 var selected = capped.filter(function (item) { return selectedSet.has(item); });
                 var unselected = capped.filter(function (item) { return !selectedSet.has(item); });
 
                 var visible;
-                if (expanded) {
+                if (expanded || isFiltering) {
                     visible = capped;
                 } else {
                     var remainingSlots = Math.max(CHIP_VISIBLE_DEFAULT - selected.length, 0);
                     visible = selected.concat(unselected.slice(0, remainingSlots));
+                }
+
+                if (isFiltering && filtered.length === 0) {
+                    var empty = document.createElement('span');
+                    empty.className = 'pmk-chipEmpty';
+                    empty.textContent = 'No matches.';
+                    container.appendChild(empty);
                 }
 
                 visible.forEach(function (item) {
@@ -1380,14 +1488,14 @@
                         } else {
                             selectedSet.add(item);
                         }
-                        refreshDiscover();
+                        refreshSearch();
                         scheduleRecommendationRefresh(0);
                         render();
                     });
                     container.appendChild(chip);
                 });
 
-                if (capped.length > visible.length || expanded) {
+                if (!isFiltering && (capped.length > visible.length || expanded)) {
                     var toggle = document.createElement('button');
                     toggle.type = 'button';
                     toggle.className = 'pmk-chip pmk-chipToggle';
@@ -1398,6 +1506,10 @@
                     });
                     container.appendChild(toggle);
                 }
+            }
+
+            if (filterInput) {
+                filterInput.addEventListener('input', render);
             }
 
             render();
@@ -1433,7 +1545,7 @@
 
             renderList(listEl, state.draft, {
                 remove: true,
-                emptyText: 'Add tracks from Discover or Recommended to build your playlist.',
+                emptyText: 'Add tracks from Search or Recommended to build your playlist.',
                 onClick: function (track) { removeFromDraft(track.Id); }
             });
 
@@ -1468,7 +1580,7 @@
             statusEl.className = 'pmk-status ' + (isError ? 'pmk-statusError' : 'pmk-statusOk');
         }
 
-        function refreshDiscover() {
+        function refreshSearch() {
             var resultsEl = document.getElementById('pmkSearchResults');
             var query = document.getElementById('pmkSearchInput').value.trim();
 
@@ -1489,7 +1601,7 @@
 
             // No typed query: fall back to browsing by whichever genre/artist chips are picked,
             // so picking a chip actually does something here (it previously only fed
-            // Recommended For You, leaving Discover untouched).
+            // Recommended For You, leaving Search untouched).
             if (state.selectedGenres.size === 0 && state.selectedArtists.size === 0) {
                 renderList(resultsEl, [], { emptyText: 'Search above, or pick a genre / artist to get started.' });
                 return;
@@ -1563,11 +1675,15 @@
 
         function loadFacets() {
             apiGet('/PlaylistMaker/Genres', { userId: state.userId }).then(function (genres) {
-                renderChips(document.getElementById('pmkGenreChips'), 'Genres', genres || [], state.selectedGenres);
+                renderChips(
+                    document.getElementById('pmkGenreChips'), 'Genres', genres || [], state.selectedGenres,
+                    document.getElementById('pmkGenreFilterInput'));
             }).catch(function () { /* non-fatal */ });
 
             apiGet('/PlaylistMaker/Artists', { userId: state.userId }).then(function (artists) {
-                renderChips(document.getElementById('pmkArtistChips'), 'Artists', artists || [], state.selectedArtists);
+                renderChips(
+                    document.getElementById('pmkArtistChips'), 'Artists', artists || [], state.selectedArtists,
+                    document.getElementById('pmkArtistFilterInput'));
             }).catch(function () { /* non-fatal */ });
         }
 
@@ -1822,22 +1938,37 @@
             action.type = 'button';
             action.className = 'pmk-requestAction';
             action.textContent = 'Request';
+
+            var actionMessage = document.createElement('div');
+            actionMessage.className = 'pmk-requestActionMessage';
+
             action.addEventListener('click', function () {
                 action.disabled = true;
                 action.textContent = 'Requesting…';
+                actionMessage.textContent = '';
                 apiPost('/PlaylistMaker/MusicRequests', {
+                    UserId: state.userId,
                     ForeignArtistId: artist.ForeignArtistId,
                     ArtistName: artist.ArtistName
                 }).then(function () {
                     action.textContent = 'Requested';
                     action.className = 'pmk-requestAction pmk-requestActionDone';
-                }).catch(function () {
+                }).catch(function (err) {
                     action.disabled = false;
-                    action.textContent = 'Try again';
                     action.className = 'pmk-requestAction pmk-requestActionError';
+                    if (err && err.status === 429) {
+                        action.textContent = 'Limit reached';
+                        actionMessage.textContent = err.message;
+                    } else {
+                        action.textContent = 'Try again';
+                    }
                 });
             });
-            row.appendChild(action);
+            var actionWrap = document.createElement('div');
+            actionWrap.className = 'pmk-requestActionWrap';
+            actionWrap.appendChild(action);
+            actionWrap.appendChild(actionMessage);
+            row.appendChild(actionWrap);
 
             return row;
         }
@@ -1900,7 +2031,7 @@
             var searchInput = document.getElementById('pmkSearchInput');
             searchInput.addEventListener('input', function () {
                 window.clearTimeout(state.searchTimer);
-                state.searchTimer = window.setTimeout(refreshDiscover, 300);
+                state.searchTimer = window.setTimeout(refreshSearch, 300);
             });
 
             document.getElementById('pmkSaveButton').addEventListener('click', savePlaylist);

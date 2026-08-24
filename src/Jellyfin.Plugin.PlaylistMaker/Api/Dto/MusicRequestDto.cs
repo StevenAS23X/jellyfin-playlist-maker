@@ -1,3 +1,5 @@
+using System;
+
 namespace Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Jellyfin.Plugin.PlaylistMaker.Api.Dto;
 /// </summary>
 public class MusicRequestDto
 {
+    /// <summary>
+    /// Gets or sets the id of the user making the request, for per-user rate limiting.
+    /// </summary>
+    public Guid UserId { get; set; }
+
     /// <summary>
     /// Gets or sets the MusicBrainz id from a Lidarr search result.
     /// </summary>

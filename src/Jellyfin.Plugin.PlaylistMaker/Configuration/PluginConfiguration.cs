@@ -58,4 +58,16 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the metadata profile id new artists are added with.
     /// </summary>
     public int LidarrMetadataProfileId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of music requests a single user can make within
+    /// <see cref="RequestWindowHours"/>. 0 means unlimited.
+    /// </summary>
+    public int MaxRequestsPerUser { get; set; }
+
+    /// <summary>
+    /// Gets or sets the length, in hours, of the rolling window <see cref="MaxRequestsPerUser"/>
+    /// applies over.
+    /// </summary>
+    public int RequestWindowHours { get; set; } = 24;
 }

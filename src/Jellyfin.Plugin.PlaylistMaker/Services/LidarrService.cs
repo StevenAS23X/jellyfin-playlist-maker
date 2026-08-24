@@ -16,6 +16,15 @@ public class LidarrService : ILidarrService
 {
     private const string ApiKeyHeader = "X-Api-Key";
 
+    // Lidarr only populates RemotePoster from a "poster"-typed image, which many artists in a
+    // fresh lookup (not yet added to Lidarr) simply don't have - most only have "fanart" or
+    // "banner" available from their metadata source. Fall back through other cover types instead
+    // of leaving the row blank.
+    private static readonly string[] PreferredImageTypes =
+    {
+        "poster", "cover", "fanart", "banner", "logo", "clearlogo", "screenshot", "headshot", "disc"
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -69,9 +78,35 @@ public class LidarrService : ILidarrService
                 ArtistName = r.ArtistName ?? string.Empty,
                 Disambiguation = r.Disambiguation,
                 Overview = r.Overview,
-                ImageUrl = r.RemotePoster
+                ImageUrl = ResolveImageUrl(r)
             })
             .ToList();
+    }
+
+    private static string? ResolveImageUrl(LidarrArtistLookupResult result)
+    {
+        if (!string.IsNullOrWhiteSpace(result.RemotePoster))
+        {
+            return result.RemotePoster;
+        }
+
+        if (result.Images is null || result.Images.Count == 0)
+        {
+            return null;
+        }
+
+        foreach (var preferredType in PreferredImageTypes)
+        {
+            var match = result.Images.FirstOrDefault(i =>
+                string.Equals(i.CoverType, preferredType, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(i.RemoteUrl));
+            if (match is not null)
+            {
+                return match.RemoteUrl;
+            }
+        }
+
+        return result.Images.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.RemoteUrl))?.RemoteUrl;
     }
 
     /// <inheritdoc />
@@ -180,6 +215,15 @@ public class LidarrService : ILidarrService
         public string? Overview { get; set; }
 
         public string? RemotePoster { get; set; }
+
+        public List<LidarrImageResult>? Images { get; set; }
+    }
+
+    private sealed class LidarrImageResult
+    {
+        public string? CoverType { get; set; }
+
+        public string? RemoteUrl { get; set; }
     }
 
     private sealed class LidarrRootFolderResult

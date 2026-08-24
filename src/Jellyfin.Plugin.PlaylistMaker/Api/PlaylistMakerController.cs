@@ -32,6 +32,7 @@ public class PlaylistMakerController : ControllerBase
     private readonly IPlaylistManager _playlistManager;
     private readonly IProviderManager _providerManager;
     private readonly ILidarrService _lidarrService;
+    private readonly IRequestRateLimiter _requestRateLimiter;
     private readonly ILogger<PlaylistMakerController> _logger;
 
     /// <summary>
@@ -41,18 +42,21 @@ public class PlaylistMakerController : ControllerBase
     /// <param name="playlistManager">Instance of the <see cref="IPlaylistManager"/> interface.</param>
     /// <param name="providerManager">Instance of the <see cref="IProviderManager"/> interface.</param>
     /// <param name="lidarrService">Instance of the <see cref="ILidarrService"/> interface.</param>
+    /// <param name="requestRateLimiter">Instance of the <see cref="IRequestRateLimiter"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{PlaylistMakerController}"/> interface.</param>
     public PlaylistMakerController(
         IRecommendationService recommendationService,
         IPlaylistManager playlistManager,
         IProviderManager providerManager,
         ILidarrService lidarrService,
+        IRequestRateLimiter requestRateLimiter,
         ILogger<PlaylistMakerController> logger)
     {
         _recommendationService = recommendationService;
         _playlistManager = playlistManager;
         _providerManager = providerManager;
         _lidarrService = lidarrService;
+        _requestRateLimiter = requestRateLimiter;
         _logger = logger;
     }
 
@@ -415,10 +419,20 @@ public class PlaylistMakerController : ControllerBase
     [HttpPost("MusicRequests")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult> RequestMusic(
         [FromBody] MusicRequestDto request,
         CancellationToken cancellationToken)
     {
+        if (!_requestRateLimiter.TryRecordRequest(request.UserId, out var retryAfter))
+        {
+            var minutes = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalMinutes));
+            Response.Headers["Retry-After"] = ((int)retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return StatusCode(
+                StatusCodes.Status429TooManyRequests,
+                $"You've hit the request limit. Try again in about {minutes} minute{(minutes == 1 ? string.Empty : "s")}.");
+        }
+
         try
         {
             await _lidarrService.RequestArtist(request.ForeignArtistId, request.ArtistName, cancellationToken)
