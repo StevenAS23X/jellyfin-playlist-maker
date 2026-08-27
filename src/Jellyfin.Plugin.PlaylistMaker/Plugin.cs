@@ -50,7 +50,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             {
                 Name = "playlistmaker",
                 EmbeddedResourcePath = string.Format("{0}.Web.playlistmaker.html", GetType().Namespace),
-                DisplayName = "Playlist Maker",
+                DisplayName = "Playlist Maker: Music Requests",
                 EnableInMainMenu = true,
                 MenuIcon = "queue_music"
             }

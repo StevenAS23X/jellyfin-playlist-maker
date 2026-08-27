@@ -23,209 +23,17 @@
                     margin-top: 0;
                 }
 
-                .pmk-columns {
-                    display: grid;
-                    grid-template-columns: 1.1fr 1fr 1.1fr;
-                    gap: 1.5em;
-                    align-items: start;
-                    margin-top: 1.5em;
-                }
-
-                @media (max-width: 100em) {
-                    .pmk-columns {
-                        grid-template-columns: 1fr;
-                    }
-                }
-
-                .pmk-columns > * {
-                    min-width: 0;
-                }
-
                 .pmk-panel {
                     background: rgba(255, 255, 255, 0.04);
                     border: 1px solid rgba(255, 255, 255, 0.08);
                     border-radius: 0.6em;
                     padding: 1.2em;
-                    min-height: 30em;
-                    display: flex;
-                    flex-direction: column;
-                    min-width: 0;
+                    margin-bottom: 1.5em;
                 }
 
                 .pmk-panel h2 {
                     margin-top: 0;
                     font-size: 1.1em;
-                }
-
-                .pmk-searchRow {
-                    margin-bottom: 0.8em;
-                }
-
-                .pmk-searchInput {
-                    width: 100%;
-                }
-
-                .pmk-chipGroup {
-                    display: flex;
-                    flex-wrap: wrap;
-                    align-items: center;
-                    gap: 0.4em;
-                    margin-bottom: 0.6em;
-                }
-
-                .pmk-chipLabel {
-                    font-size: 0.8em;
-                    opacity: 0.6;
-                    margin-right: 0.3em;
-                }
-
-                .pmk-chip {
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    background: transparent;
-                    color: inherit;
-                    border-radius: 999px;
-                    padding: 0.25em 0.9em;
-                    font-size: 0.85em;
-                    cursor: pointer;
-                    transition: background 0.15s ease, border-color 0.15s ease;
-                    max-width: 16em;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
-
-                .pmk-chip:hover {
-                    border-color: rgba(0, 164, 220, 0.8);
-                }
-
-                .pmk-chip.pmk-chipActive {
-                    background: rgba(0, 164, 220, 0.9);
-                    border-color: rgba(0, 164, 220, 0.9);
-                    color: #fff;
-                }
-
-                .pmk-browse {
-                    margin-top: 1.5em;
-                    min-height: 0;
-                }
-
-                .pmk-browseColumns {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 1.5em;
-                }
-
-                @media (max-width: 60em) {
-                    .pmk-browseColumns {
-                        grid-template-columns: 1fr;
-                    }
-                }
-
-                .pmk-browseGroupHeader {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 0.8em;
-                    margin-bottom: 0.5em;
-                }
-
-                .pmk-browseGroupHeader .pmk-chipLabel {
-                    font-size: 0.9em;
-                    margin-right: 0;
-                    flex-shrink: 0;
-                }
-
-                .pmk-filterInput {
-                    flex: 1;
-                    min-width: 0;
-                }
-
-                .pmk-chipEmpty {
-                    font-size: 0.85em;
-                    opacity: 0.55;
-                }
-
-                .pmk-results {
-                    flex: 1;
-                    overflow-y: auto;
-                    max-height: 42em;
-                }
-
-                .pmk-trackRow {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 0.6em;
-                    padding: 0.5em 0.3em;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-                }
-
-                .pmk-trackRow:last-child {
-                    border-bottom: none;
-                }
-
-                .pmk-trackInfo {
-                    min-width: 0;
-                    flex: 1;
-                }
-
-                .pmk-trackName {
-                    font-weight: 600;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-
-                .pmk-trackMeta {
-                    font-size: 0.82em;
-                    opacity: 0.65;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-
-                .pmk-trackReason {
-                    font-size: 0.78em;
-                    color: rgba(0, 164, 220, 0.9);
-                    margin-top: 0.15em;
-                }
-
-                .pmk-trackAction {
-                    flex-shrink: 0;
-                    border-radius: 999px;
-                    border: 1px solid rgba(255, 255, 255, 0.35);
-                    background: transparent;
-                    color: inherit;
-                    font-size: 0.85em;
-                    padding: 0.35em 1.1em;
-                    cursor: pointer;
-                }
-
-                .pmk-trackAction:hover {
-                    border-color: rgba(0, 164, 220, 0.9);
-                    color: rgba(0, 164, 220, 0.9);
-                }
-
-                .pmk-trackAction.pmk-removeAction:hover {
-                    border-color: #e0455b;
-                    color: #e0455b;
-                }
-
-                .pmk-empty {
-                    opacity: 0.55;
-                    font-size: 0.9em;
-                    padding: 1em 0.3em;
-                }
-
-                .pmk-draftMeta {
-                    display: flex;
-                    align-items: center;
-                    gap: 1em;
-                    margin-bottom: 0.4em;
-                }
-
-                .pmk-nameInput {
-                    flex: 1;
                 }
 
                 .pmk-publicToggle {
@@ -234,26 +42,6 @@
                     gap: 0.4em;
                     white-space: nowrap;
                     font-size: 0.9em;
-                }
-
-                .pmk-draftSummary {
-                    font-size: 0.82em;
-                    opacity: 0.65;
-                    margin-bottom: 0.5em;
-                }
-
-                .pmk-draftList {
-                    list-style: none;
-                    margin: 0;
-                    padding: 0;
-                    flex: 1;
-                    overflow-y: auto;
-                    max-height: 34em;
-                }
-
-                .pmk-saveButton {
-                    margin-top: 1em;
-                    width: 100%;
                 }
 
                 .pmk-status {
@@ -270,45 +58,85 @@
                     color: #3fbf5f;
                 }
 
-                .pmk-recommendHeader {
+                .pmk-empty {
+                    opacity: 0.55;
+                    font-size: 0.9em;
+                    padding: 1em 0.3em;
+                }
+
+                .pmk-customRequestRow {
                     display: flex;
-                    align-items: center;
+                    align-items: flex-start;
                     justify-content: space-between;
+                    gap: 0.9em;
+                    padding: 0.7em 0.3em;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
                 }
 
-                .pmk-shuffleButton {
-                    background: transparent;
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    color: inherit;
-                    border-radius: 50%;
-                    width: 2.2em;
-                    height: 2.2em;
-                    cursor: pointer;
-                    font-size: 1.1em;
+                .pmk-customRequestRow:last-child {
+                    border-bottom: none;
                 }
 
-                .pmk-shuffleButton:hover {
-                    border-color: rgba(0, 164, 220, 0.9);
+                .pmk-customRequestInfo {
+                    min-width: 0;
+                    flex: 1;
+                }
+
+                .pmk-customRequestLink {
+                    font-weight: 600;
                     color: rgba(0, 164, 220, 0.9);
+                    word-break: break-all;
                 }
 
-                .pmk-recommendHint {
-                    font-size: 0.82em;
-                    opacity: 0.65;
+                .pmk-customRequestNote {
+                    font-size: 0.88em;
+                    opacity: 0.85;
                     margin-top: 0.3em;
+                    white-space: pre-wrap;
+                }
+
+                .pmk-customRequestMeta {
+                    font-size: 0.78em;
+                    opacity: 0.55;
+                    margin-top: 0.3em;
+                }
+
+                .pmk-customRequestDismiss {
+                    flex-shrink: 0;
+                    border-radius: 0.25em;
+                    border: 1px solid rgba(255, 255, 255, 0.35);
+                    background: transparent;
+                    color: inherit;
+                    font-size: 0.85em;
+                    padding: 0.4em 1em;
+                    cursor: pointer;
+                }
+
+                .pmk-customRequestDismiss:hover:not(:disabled) {
+                    border-color: #e0455b;
+                    color: #e0455b;
+                }
+
+                .pmk-customRequestDismiss:disabled {
+                    opacity: 0.6;
+                    cursor: default;
+                }
+
+                [hidden] {
+                    display: none !important;
                 }
             </style>
 
             <div class="pmk-app">
 
                 <header class="pmk-header">
-                    <h1>Playlist Maker</h1>
-                    <p class="pmk-subtitle">Search your library, pick a starting genre or artist, and build a playlist with live recommendations &mdash; just like Spotify or Apple Music.</p>
+                    <h1>Music Requests</h1>
+                    <p class="pmk-subtitle">Lidarr integration settings for the standalone Playlist Maker app's "Request Music" feature, and custom requests submitted by users.</p>
                 </header>
 
-                <section class="pmk-panel pmk-lidarrSettings" style="margin-bottom: 1.5em;">
+                <section class="pmk-panel pmk-lidarrSettings">
                     <h2>Music Requests (Lidarr)</h2>
-                    <p class="pmk-subtitle">Let users search for and request new artists to be added to your library from the standalone app. Requires a running Lidarr instance.</p>
+                    <p class="pmk-subtitle">Let users search for and request new artists/albums to be added to your library from the standalone app. Requires a running Lidarr instance.</p>
 
                     <label class="pmk-publicToggle">
                         <input is="emby-checkbox" type="checkbox" id="pmkLidarrEnabled" />
@@ -337,7 +165,7 @@
 
                     <div class="inputContainer">
                         <input is="emby-input" id="pmkMaxRequestsPerUser" type="number" min="0" step="1" label="Max requests per user" />
-                        <div class="fieldDescription">How many artist requests a single user may make within the time window below. 0 means unlimited.</div>
+                        <div class="fieldDescription">How many requests (artists, albums, and custom requests combined) a single user may make within the time window below. 0 means unlimited.</div>
                     </div>
                     <div class="inputContainer">
                         <input is="emby-input" id="pmkRequestWindowHours" type="number" min="1" step="1" label="Time window (hours)" />
@@ -348,77 +176,11 @@
                     <div class="pmk-status" id="pmkLidarrSaveStatus"></div>
                 </section>
 
-                <div class="pmk-columns">
-
-                    <!-- Search column -->
-                    <section class="pmk-panel pmk-discover">
-                        <h2>Search</h2>
-
-                        <div class="pmk-searchRow">
-                            <input is="emby-input" id="pmkSearchInput" type="text" placeholder="Search tracks, artists, albums&hellip;" class="pmk-searchInput" />
-                        </div>
-
-                        <div class="pmk-results" id="pmkSearchResults">
-                            <p class="pmk-empty">Search above, or pick a genre / artist to get started.</p>
-                        </div>
-                    </section>
-
-                    <!-- Draft playlist column -->
-                    <section class="pmk-panel pmk-draft">
-                        <h2>Your Playlist</h2>
-
-                        <div class="pmk-draftMeta">
-                            <input is="emby-input" id="pmkPlaylistName" type="text" placeholder="Playlist name" class="pmk-nameInput" />
-                            <label class="pmk-publicToggle">
-                                <input is="emby-checkbox" type="checkbox" id="pmkPlaylistPublic" />
-                                <span>Public</span>
-                            </label>
-                        </div>
-
-                        <div class="pmk-draftSummary" id="pmkDraftSummary">0 tracks</div>
-
-                        <ol class="pmk-draftList" id="pmkDraftList">
-                            <li class="pmk-empty">Add tracks from Search or Recommended to build your playlist.</li>
-                        </ol>
-
-                        <button is="emby-button" type="button" id="pmkSaveButton" class="raised button-submit pmk-saveButton" disabled>
-                            Save Playlist
-                        </button>
-                        <div class="pmk-status" id="pmkStatus"></div>
-                    </section>
-
-                    <!-- Recommendations column -->
-                    <section class="pmk-panel pmk-recommend">
-                        <div class="pmk-recommendHeader">
-                            <h2>Recommended For You</h2>
-                            <button is="emby-button" type="button" id="pmkShuffleButton" class="pmk-shuffleButton" title="Refresh suggestions">&#8635;</button>
-                        </div>
-                        <p class="pmk-recommendHint" id="pmkRecommendHint">Popular in your library. Add a track or pick a genre/artist to personalize these.</p>
-                        <div class="pmk-results" id="pmkRecommendResults">
-                            <p class="pmk-empty">Loading recommendations&hellip;</p>
-                        </div>
-                    </section>
-
-                </div>
-
-                <section class="pmk-panel pmk-browse">
-                    <h2>Browse by Genre &amp; Artist</h2>
-                    <p class="pmk-subtitle">Pick a genre or artist to fill Search and Recommended For You with a tailored mix.</p>
-                    <div class="pmk-browseColumns">
-                        <div class="pmk-browseGroup">
-                            <div class="pmk-browseGroupHeader">
-                                <span class="pmk-chipLabel">Genres</span>
-                                <input is="emby-input" id="pmkGenreFilterInput" type="text" placeholder="Filter genres&hellip;" class="pmk-filterInput" />
-                            </div>
-                            <div class="pmk-chipGroup" id="pmkGenreChips"></div>
-                        </div>
-                        <div class="pmk-browseGroup">
-                            <div class="pmk-browseGroupHeader">
-                                <span class="pmk-chipLabel">Artists</span>
-                                <input is="emby-input" id="pmkArtistFilterInput" type="text" placeholder="Filter artists&hellip;" class="pmk-filterInput" />
-                            </div>
-                            <div class="pmk-chipGroup" id="pmkArtistChips"></div>
-                        </div>
+                <section class="pmk-panel pmk-customRequests">
+                    <h2>Custom Requests</h2>
+                    <p class="pmk-subtitle">Links users have submitted for anything the Lidarr artist/album search can't resolve on its own. Dismiss a request once you've handled it.</p>
+                    <div id="pmkCustomRequestsList">
+                        <p class="pmk-empty">Loading&hellip;</p>
                     </div>
                 </section>
             </div>
@@ -432,17 +194,9 @@
                         return;
                     }
 
-                    var CHIP_LIMIT = 24;
-
                     var PLUGIN_ID = 'f3b1a7f0-4b9a-4e9c-9c1e-8a2b6d5e7c11';
 
                     var state = {
-                        userId: null,
-                        draft: [],
-                        selectedGenres: new Set(),
-                        selectedArtists: new Set(),
-                        searchTimer: null,
-                        recommendTimer: null,
                         lidarrConfig: null
                     };
 
@@ -479,278 +233,15 @@
                         });
                     }
 
-                    function formatDuration(ticks) {
-                        if (!ticks) {
-                            return '';
-                        }
-                        var totalSeconds = Math.round(ticks / 10000000);
-                        var minutes = Math.floor(totalSeconds / 60);
-                        var seconds = totalSeconds % 60;
-                        return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+                    function apiDelete(path) {
+                        var url = ApiClient.getUrl(path);
+                        return ApiClient.ajax({ type: 'DELETE', url: url });
                     }
 
                     function clearChildren(el) {
                         while (el.firstChild) {
                             el.removeChild(el.firstChild);
                         }
-                    }
-
-                    function trackMetaText(track) {
-                        var parts = [];
-                        if (track.Artists && track.Artists.length) {
-                            parts.push(track.Artists.join(', '));
-                        }
-                        if (track.Album) {
-                            parts.push(track.Album);
-                        }
-                        var duration = formatDuration(track.RunTimeTicks);
-                        if (duration) {
-                            parts.push(duration);
-                        }
-                        return parts.join(' • ');
-                    }
-
-                    function buildTrackRow(track, options) {
-                        var row = document.createElement('div');
-                        row.className = 'pmk-trackRow';
-
-                        var info = document.createElement('div');
-                        info.className = 'pmk-trackInfo';
-
-                        var name = document.createElement('div');
-                        name.className = 'pmk-trackName';
-                        name.textContent = track.Name;
-                        info.appendChild(name);
-
-                        var meta = document.createElement('div');
-                        meta.className = 'pmk-trackMeta';
-                        meta.textContent = trackMetaText(track);
-                        info.appendChild(meta);
-
-                        if (track.MatchReason) {
-                            var reason = document.createElement('div');
-                            reason.className = 'pmk-trackReason';
-                            reason.textContent = track.MatchReason;
-                            info.appendChild(reason);
-                        }
-
-                        row.appendChild(info);
-
-                        var action = document.createElement('button');
-                        action.type = 'button';
-                        action.className = 'pmk-trackAction' + (options.remove ? ' pmk-removeAction' : '');
-                        action.textContent = options.remove ? 'Remove' : 'Add';
-                        action.title = options.remove ? 'Remove from playlist' : 'Add to playlist';
-                        action.addEventListener('click', function () { options.onClick(track); });
-                        row.appendChild(action);
-
-                        return row;
-                    }
-
-                    function renderList(container, tracks, options) {
-                        clearChildren(container);
-                        if (!tracks || tracks.length === 0) {
-                            var empty = document.createElement('p');
-                            empty.className = 'pmk-empty';
-                            empty.textContent = options.emptyText;
-                            container.appendChild(empty);
-                            return;
-                        }
-                        tracks.forEach(function (track) {
-                            container.appendChild(buildTrackRow(track, options));
-                        });
-                    }
-
-                    // Strips everything but letters/digits before comparing, so "sam's", "sams",
-                    // and "sams'" are all treated as the same search term instead of punctuation
-                    // blocking the match.
-                    function normalizeForSearch(text) {
-                        return (text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                    }
-
-                    function renderChips(container, label, items, selectedSet, filterInput) {
-                        function render() {
-                            clearChildren(container);
-                            var labelEl = document.createElement('span');
-                            labelEl.className = 'pmk-chipLabel';
-                            labelEl.textContent = label;
-                            container.appendChild(labelEl);
-
-                            var query = filterInput ? normalizeForSearch(filterInput.value) : '';
-                            var filtered = query
-                                ? items.filter(function (item) { return normalizeForSearch(item).indexOf(query) !== -1; })
-                                : items;
-
-                            if (query && filtered.length === 0) {
-                                var empty = document.createElement('span');
-                                empty.className = 'pmk-chipEmpty';
-                                empty.textContent = 'No matches.';
-                                container.appendChild(empty);
-                            }
-
-                            filtered.slice(0, CHIP_LIMIT).forEach(function (item) {
-                                var chip = document.createElement('button');
-                                chip.type = 'button';
-                                chip.className = 'pmk-chip' + (selectedSet.has(item) ? ' pmk-chipActive' : '');
-                                chip.textContent = item;
-                                chip.title = item;
-                                chip.addEventListener('click', function () {
-                                    if (selectedSet.has(item)) {
-                                        selectedSet.delete(item);
-                                    } else {
-                                        selectedSet.add(item);
-                                    }
-                                    chip.classList.toggle('pmk-chipActive');
-                                    scheduleRecommendationRefresh(0);
-                                });
-                                container.appendChild(chip);
-                            });
-                        }
-
-                        if (filterInput) {
-                            filterInput.addEventListener('input', render);
-                        }
-
-                        render();
-                    }
-
-                    function draftIds() {
-                        return state.draft.map(function (t) { return t.Id; });
-                    }
-
-                    function renderDraft() {
-                        var listEl = pageEl.querySelector('#pmkDraftList');
-                        var summaryEl = pageEl.querySelector('#pmkDraftSummary');
-                        var saveButton = pageEl.querySelector('#pmkSaveButton');
-
-                        renderList(listEl, state.draft, {
-                            remove: true,
-                            emptyText: 'Add tracks from Search or Recommended to build your playlist.',
-                            onClick: function (track) { removeFromDraft(track.Id); }
-                        });
-
-                        var totalTicks = state.draft.reduce(function (sum, t) { return sum + (t.RunTimeTicks || 0); }, 0);
-                        var totalMinutes = Math.round(totalTicks / 10000000 / 60);
-                        summaryEl.textContent = state.draft.length + (state.draft.length === 1 ? ' track' : ' tracks') +
-                            (totalMinutes > 0 ? ' • ~' + totalMinutes + ' min' : '');
-
-                        saveButton.disabled = state.draft.length === 0;
-                    }
-
-                    function addToDraft(track) {
-                        if (state.draft.some(function (t) { return t.Id === track.Id; })) {
-                            return;
-                        }
-                        state.draft.push(track);
-                        renderDraft();
-                        scheduleRecommendationRefresh(0);
-                    }
-
-                    function removeFromDraft(id) {
-                        state.draft = state.draft.filter(function (t) { return t.Id !== id; });
-                        renderDraft();
-                        scheduleRecommendationRefresh(0);
-                    }
-
-                    function showStatus(message, isError) {
-                        var statusEl = pageEl.querySelector('#pmkStatus');
-                        statusEl.textContent = message;
-                        statusEl.className = 'pmk-status ' + (isError ? 'pmk-statusError' : 'pmk-statusOk');
-                    }
-
-                    function runSearch(query) {
-                        var resultsEl = pageEl.querySelector('#pmkSearchResults');
-                        if (!query) {
-                            renderList(resultsEl, [], { emptyText: 'Search above, or pick a genre / artist to get started.' });
-                            return;
-                        }
-                        apiGet('PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
-                            .then(function (tracks) {
-                                renderList(resultsEl, tracks, {
-                                    remove: false,
-                                    emptyText: 'No matches found.',
-                                    onClick: addToDraft
-                                });
-                            })
-                            .catch(function (err) {
-                                renderList(resultsEl, [], { emptyText: 'Search failed: ' + (err && err.statusText ? err.statusText : 'unknown error') });
-                            });
-                    }
-
-                    function scheduleRecommendationRefresh(delay) {
-                        window.clearTimeout(state.recommendTimer);
-                        state.recommendTimer = window.setTimeout(refreshRecommendations, delay === undefined ? 250 : delay);
-                    }
-
-                    function refreshRecommendations() {
-                        var resultsEl = pageEl.querySelector('#pmkRecommendResults');
-                        var hintEl = pageEl.querySelector('#pmkRecommendHint');
-
-                        var hasSeed = state.draft.length > 0 || state.selectedGenres.size > 0 || state.selectedArtists.size > 0;
-                        hintEl.textContent = hasSeed
-                            ? 'Based on the tracks and genres/artists you’ve picked.'
-                            : 'Popular in your library. Add a track or pick a genre/artist to personalize these.';
-
-                        apiGet('PlaylistMaker/Recommendations', {
-                            userId: state.userId,
-                            seedItemIds: draftIds(),
-                            seedGenres: Array.from(state.selectedGenres),
-                            seedArtists: Array.from(state.selectedArtists),
-                            excludeItemIds: draftIds(),
-                            limit: 20
-                        }).then(function (tracks) {
-                            renderList(resultsEl, tracks, {
-                                remove: false,
-                                emptyText: 'No recommendations yet — try adding a track or picking a genre/artist.',
-                                onClick: addToDraft
-                            });
-                        }).catch(function (err) {
-                            renderList(resultsEl, [], { emptyText: 'Could not load recommendations: ' + (err && err.statusText ? err.statusText : 'unknown error') });
-                        });
-                    }
-
-                    function loadFacets() {
-                        apiGet('PlaylistMaker/Genres', { userId: state.userId }).then(function (genres) {
-                            renderChips(
-                                pageEl.querySelector('#pmkGenreChips'), 'Genres', genres || [], state.selectedGenres,
-                                pageEl.querySelector('#pmkGenreFilterInput'));
-                        }).catch(function () { /* non-fatal */ });
-
-                        apiGet('PlaylistMaker/Artists', { userId: state.userId }).then(function (artists) {
-                            renderChips(
-                                pageEl.querySelector('#pmkArtistChips'), 'Artists', artists || [], state.selectedArtists,
-                                pageEl.querySelector('#pmkArtistFilterInput'));
-                        }).catch(function () { /* non-fatal */ });
-                    }
-
-                    function savePlaylist() {
-                        var nameInput = pageEl.querySelector('#pmkPlaylistName');
-                        var publicCheckbox = pageEl.querySelector('#pmkPlaylistPublic');
-                        var saveButton = pageEl.querySelector('#pmkSaveButton');
-                        var name = nameInput.value.trim();
-
-                        if (!name) {
-                            showStatus('Give your playlist a name first.', true);
-                            return;
-                        }
-                        if (state.draft.length === 0) {
-                            showStatus('Add at least one track first.', true);
-                            return;
-                        }
-
-                        saveButton.disabled = true;
-                        apiPostJson('PlaylistMaker/Playlists', {
-                            Name: name,
-                            UserId: state.userId,
-                            ItemIds: draftIds(),
-                            Public: !!publicCheckbox.checked
-                        }).then(function () {
-                            showStatus('Saved "' + name + '" with ' + state.draft.length + ' tracks.', false);
-                        }).catch(function (err) {
-                            showStatus('Could not save playlist: ' + (err && err.statusText ? err.statusText : 'unknown error'), true);
-                        }).finally(function () {
-                            saveButton.disabled = state.draft.length === 0;
-                        });
                     }
 
                     function populateSelect(selectEl, options, selectedValue) {
@@ -860,27 +351,87 @@
                         });
                     }
 
-                    function init() {
-                        state.userId = ApiClient.getCurrentUserId();
-                        state.draft = [];
-                        state.selectedGenres = new Set();
-                        state.selectedArtists = new Set();
+                    function formatTimestamp(iso) {
+                        try {
+                            return new Date(iso).toLocaleString();
+                        } catch (e) {
+                            return iso;
+                        }
+                    }
 
-                        renderDraft();
-                        loadFacets();
-                        refreshRecommendations();
-                        loadLidarrConfig();
+                    function buildCustomRequestRow(request) {
+                        var row = document.createElement('div');
+                        row.className = 'pmk-customRequestRow';
 
-                        var searchInput = pageEl.querySelector('#pmkSearchInput');
-                        searchInput.value = '';
-                        searchInput.addEventListener('input', function () {
-                            var value = searchInput.value.trim();
-                            window.clearTimeout(state.searchTimer);
-                            state.searchTimer = window.setTimeout(function () { runSearch(value); }, 300);
+                        var info = document.createElement('div');
+                        info.className = 'pmk-customRequestInfo';
+
+                        var link = document.createElement('a');
+                        link.className = 'pmk-customRequestLink';
+                        link.href = request.Link;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.textContent = request.Link;
+                        info.appendChild(link);
+
+                        if (request.Note) {
+                            var note = document.createElement('div');
+                            note.className = 'pmk-customRequestNote';
+                            note.textContent = request.Note;
+                            info.appendChild(note);
+                        }
+
+                        var meta = document.createElement('div');
+                        meta.className = 'pmk-customRequestMeta';
+                        meta.textContent = request.UserName + ' • ' + formatTimestamp(request.SubmittedAt);
+                        info.appendChild(meta);
+
+                        row.appendChild(info);
+
+                        var dismiss = document.createElement('button');
+                        dismiss.type = 'button';
+                        dismiss.className = 'pmk-customRequestDismiss';
+                        dismiss.textContent = 'Dismiss';
+                        dismiss.addEventListener('click', function () {
+                            dismiss.disabled = true;
+                            apiDelete('PlaylistMaker/CustomRequests/' + request.Id).then(function () {
+                                row.remove();
+                            }).catch(function () {
+                                dismiss.disabled = false;
+                            });
                         });
+                        row.appendChild(dismiss);
 
-                        pageEl.querySelector('#pmkSaveButton').addEventListener('click', savePlaylist);
-                        pageEl.querySelector('#pmkShuffleButton').addEventListener('click', function () { refreshRecommendations(); });
+                        return row;
+                    }
+
+                    function loadCustomRequests() {
+                        var listEl = pageEl.querySelector('#pmkCustomRequestsList');
+                        apiGet('PlaylistMaker/CustomRequests').then(function (requests) {
+                            clearChildren(listEl);
+                            if (!requests || requests.length === 0) {
+                                var empty = document.createElement('p');
+                                empty.className = 'pmk-empty';
+                                empty.textContent = 'No custom requests yet.';
+                                listEl.appendChild(empty);
+                                return;
+                            }
+                            requests.forEach(function (request) {
+                                listEl.appendChild(buildCustomRequestRow(request));
+                            });
+                        }).catch(function () {
+                            clearChildren(listEl);
+                            var err = document.createElement('p');
+                            err.className = 'pmk-empty';
+                            err.textContent = 'Could not load custom requests.';
+                            listEl.appendChild(err);
+                        });
+                    }
+
+                    function init() {
+                        loadLidarrConfig();
+                        loadCustomRequests();
+
                         pageEl.querySelector('#pmkLidarrTestButton').addEventListener('click', connectLidarr);
                         pageEl.querySelector('#pmkLidarrSaveButton').addEventListener('click', saveLidarrSettings);
                     }

@@ -33,6 +33,8 @@ public class PlaylistMakerController : ControllerBase
     private readonly IProviderManager _providerManager;
     private readonly ILidarrService _lidarrService;
     private readonly IRequestRateLimiter _requestRateLimiter;
+    private readonly ICustomRequestService _customRequestService;
+    private readonly IUserManager _userManager;
     private readonly ILogger<PlaylistMakerController> _logger;
 
     /// <summary>
@@ -43,6 +45,8 @@ public class PlaylistMakerController : ControllerBase
     /// <param name="providerManager">Instance of the <see cref="IProviderManager"/> interface.</param>
     /// <param name="lidarrService">Instance of the <see cref="ILidarrService"/> interface.</param>
     /// <param name="requestRateLimiter">Instance of the <see cref="IRequestRateLimiter"/> interface.</param>
+    /// <param name="customRequestService">Instance of the <see cref="ICustomRequestService"/> interface.</param>
+    /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{PlaylistMakerController}"/> interface.</param>
     public PlaylistMakerController(
         IRecommendationService recommendationService,
@@ -50,6 +54,8 @@ public class PlaylistMakerController : ControllerBase
         IProviderManager providerManager,
         ILidarrService lidarrService,
         IRequestRateLimiter requestRateLimiter,
+        ICustomRequestService customRequestService,
+        IUserManager userManager,
         ILogger<PlaylistMakerController> logger)
     {
         _recommendationService = recommendationService;
@@ -57,6 +63,8 @@ public class PlaylistMakerController : ControllerBase
         _providerManager = providerManager;
         _lidarrService = lidarrService;
         _requestRateLimiter = requestRateLimiter;
+        _customRequestService = customRequestService;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -419,6 +427,38 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Gets a specific artist's individual albums/singles, so a request can be scoped to just one
+    /// release instead of their entire discography. Lidarr has no direct "list this not-yet-added
+    /// artist's catalog" endpoint, so this searches albums by the artist's name and filters down to
+    /// ones actually credited to their MusicBrainz id. Albums already present in the user's library
+    /// are left out.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="artistName">The artist's name, used as the album search term.</param>
+    /// <param name="foreignArtistId">The artist's MusicBrainz id, to filter results down to just them.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The artist's matching albums/singles.</returns>
+    [HttpGet("MusicRequests/Artists/Albums")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<LidarrAlbumDto>>> SearchArtistAlbumRequests(
+        [FromQuery] Guid userId,
+        [FromQuery] string artistName,
+        [FromQuery] string foreignArtistId,
+        CancellationToken cancellationToken)
+    {
+        var results = await _lidarrService.SearchAlbums(artistName, cancellationToken).ConfigureAwait(false);
+        var ownedAlbums = new HashSet<string>(
+            _recommendationService.GetOwnedAlbums(userId).Select(a => OwnedAlbumKey(a.Artist, a.Title)),
+            StringComparer.Ordinal);
+
+        return Ok(results
+            .Where(r => string.Equals(r.ArtistForeignArtistId, foreignArtistId, StringComparison.Ordinal))
+            .Where(r => !ownedAlbums.Contains(OwnedAlbumKey(r.ArtistName, r.Title)))
+            .OrderByDescending(r => r.ReleaseDate)
+            .ToList());
+    }
+
+    /// <summary>
     /// Requests that an artist be added to Lidarr (monitored, searching for missing albums).
     /// </summary>
     /// <param name="request">The artist to request.</param>
@@ -517,6 +557,74 @@ public class PlaylistMakerController : ControllerBase
             _logger.LogWarning(ex, "Album request failed for {AlbumTitle}", request.AlbumTitle);
             return BadRequest(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Submits a custom music request: a link (and optional note) for something outside what the
+    /// Lidarr artist/album search can resolve on its own, for an admin to review manually on the
+    /// settings page. Shares the same per-user rate limit as artist/album requests.
+    /// </summary>
+    /// <param name="request">The link, optional note, and submitting user.</param>
+    /// <returns>No content on success.</returns>
+    [HttpPost("CustomRequests")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public ActionResult SubmitCustomRequest([FromBody] CustomRequestDto request)
+    {
+        var link = request.Link?.Trim() ?? string.Empty;
+        if (link.Length == 0)
+        {
+            return BadRequest("Enter a link first.");
+        }
+
+        if (!_requestRateLimiter.TryRecordRequest(request.UserId, out var retryAfter))
+        {
+            var minutes = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalMinutes));
+            Response.Headers["Retry-After"] = ((int)retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return StatusCode(
+                StatusCodes.Status429TooManyRequests,
+                $"You've hit the request limit. Try again in about {minutes} minute{(minutes == 1 ? string.Empty : "s")}.");
+        }
+
+        const int MaxLinkLength = 2000;
+        const int MaxNoteLength = 1000;
+
+        var userName = _userManager.GetUserById(request.UserId)?.Username ?? "Unknown user";
+        var note = request.Note?.Trim();
+
+        _customRequestService.Add(
+            userName,
+            link.Length > MaxLinkLength ? link[..MaxLinkLength] : link,
+            string.IsNullOrEmpty(note) ? null : (note.Length > MaxNoteLength ? note[..MaxNoteLength] : note));
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Gets every submitted custom request, for the admin settings page.
+    /// </summary>
+    /// <returns>All stored custom requests, newest first.</returns>
+    [HttpGet("CustomRequests")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<CustomRequestRecordDto>> GetCustomRequests()
+    {
+        return Ok(_customRequestService.GetAll());
+    }
+
+    /// <summary>
+    /// Deletes a custom request once an admin has handled it.
+    /// </summary>
+    /// <param name="id">The request's id.</param>
+    /// <returns>No content.</returns>
+    [HttpDelete("CustomRequests/{id}")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult DeleteCustomRequest([FromRoute] Guid id)
+    {
+        return _customRequestService.Remove(id) ? NoContent() : NotFound();
     }
 
     /// <summary>

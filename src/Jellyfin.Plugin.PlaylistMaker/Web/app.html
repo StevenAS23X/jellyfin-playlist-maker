@@ -887,6 +887,64 @@
             color: #e0455b;
         }
 
+        .pmk-requestAction.pmk-requestToggleAction {
+            border-style: dashed;
+            color: #b3b3b3;
+        }
+
+        .pmk-requestArtistWrap {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .pmk-requestArtistWrap:last-child {
+            border-bottom: none;
+        }
+
+        .pmk-requestArtistWrap .pmk-requestRow {
+            border-bottom: none;
+        }
+
+        .pmk-requestArtistAlbums {
+            margin: 0 0 0.5em 2.6em;
+            padding-left: 0.9em;
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .pmk-requestArtistAlbums .pmk-requestRow {
+            padding: 0.5em 0.3em;
+        }
+
+        .pmk-requestArtistAlbums .pmk-empty {
+            padding: 0.5em 0.3em;
+        }
+
+        .pmk-customRequestForm {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6em;
+        }
+
+        .pmk-customRequestForm textarea {
+            width: 100%;
+            min-height: 4em;
+            padding: 0.55em 0.8em;
+            border-radius: 0.4em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .pmk-customRequestForm textarea:focus {
+            outline: none;
+            border-color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-customRequestSubmit {
+            align-self: flex-start;
+        }
+
         [hidden] {
             display: none !important;
         }
@@ -1040,12 +1098,21 @@
             </div>
 
             <h3 class="pmk-requestSubheading">Request an Artist</h3>
-            <p class="pmk-subtitle">Don't have an artist in your library? Search for them here and request they be added.</p>
+            <p class="pmk-subtitle">Search for an artist to browse and request individual albums/singles from their catalog, or request their entire discography at once.</p>
             <div class="pmk-searchRow">
                 <input id="pmkRequestSearchInput" type="text" placeholder="Search for an artist to request&hellip;" class="pmk-searchInput" />
             </div>
             <div class="pmk-requestResults" id="pmkRequestResults">
                 <p class="pmk-empty">Search above for an artist.</p>
+            </div>
+
+            <h3 class="pmk-requestSubheading">Can't find it? Submit a custom request</h3>
+            <p class="pmk-subtitle">Paste a link (Spotify, YouTube, Bandcamp, wherever) and an admin will look into it.</p>
+            <div class="pmk-customRequestForm">
+                <input id="pmkCustomRequestLink" type="text" placeholder="Link&hellip;" class="pmk-searchInput" />
+                <textarea id="pmkCustomRequestNote" placeholder="Optional note&hellip;"></textarea>
+                <button type="button" id="pmkCustomRequestSubmit" class="pmk-requestAction pmk-customRequestSubmit">Submit Request</button>
+                <div class="pmk-status" id="pmkCustomRequestStatus"></div>
             </div>
         </section>
     </div>
@@ -1927,6 +1994,9 @@
         }
 
         function buildRequestRow(artist) {
+            var wrap = document.createElement('div');
+            wrap.className = 'pmk-requestArtistWrap';
+
             var row = document.createElement('div');
             row.className = 'pmk-requestRow';
 
@@ -1958,10 +2028,66 @@
 
             row.appendChild(info);
 
+            var albumsContainer = document.createElement('div');
+            albumsContainer.className = 'pmk-requestArtistAlbums';
+            albumsContainer.hidden = true;
+            var albumsLoaded = false;
+
+            var toggleButton = document.createElement('button');
+            toggleButton.type = 'button';
+            toggleButton.className = 'pmk-requestAction pmk-requestToggleAction';
+            toggleButton.textContent = 'Show Albums';
+            toggleButton.addEventListener('click', function () {
+                if (!albumsContainer.hidden) {
+                    albumsContainer.hidden = true;
+                    toggleButton.textContent = 'Show Albums';
+                    return;
+                }
+
+                albumsContainer.hidden = false;
+                toggleButton.textContent = 'Hide Albums';
+
+                if (albumsLoaded) {
+                    return;
+                }
+                albumsLoaded = true;
+
+                clearChildren(albumsContainer);
+                var loading = document.createElement('p');
+                loading.className = 'pmk-empty';
+                loading.textContent = 'Loading albums…';
+                albumsContainer.appendChild(loading);
+
+                apiGet('/PlaylistMaker/MusicRequests/Artists/Albums', {
+                    userId: state.userId,
+                    artistName: artist.ArtistName,
+                    foreignArtistId: artist.ForeignArtistId
+                }).then(function (albums) {
+                    clearChildren(albumsContainer);
+                    if (!albums || albums.length === 0) {
+                        var none = document.createElement('p');
+                        none.className = 'pmk-empty';
+                        none.textContent = 'No albums found for this artist.';
+                        albumsContainer.appendChild(none);
+                        return;
+                    }
+                    albums.forEach(function (album) {
+                        albumsContainer.appendChild(buildAlbumRequestRow(album));
+                    });
+                }).catch(function () {
+                    clearChildren(albumsContainer);
+                    var err = document.createElement('p');
+                    err.className = 'pmk-empty';
+                    err.textContent = 'Could not load albums.';
+                    albumsContainer.appendChild(err);
+                });
+            });
+
             var action = document.createElement('button');
             action.type = 'button';
             action.className = 'pmk-requestAction';
-            action.textContent = 'Request';
+            action.textContent = 'Request All';
+            action.title = "Request the artist's entire discography";
 
             var actionMessage = document.createElement('div');
             actionMessage.className = 'pmk-requestActionMessage';
@@ -1990,11 +2116,15 @@
             });
             var actionWrap = document.createElement('div');
             actionWrap.className = 'pmk-requestActionWrap';
+            actionWrap.appendChild(toggleButton);
             actionWrap.appendChild(action);
             actionWrap.appendChild(actionMessage);
             row.appendChild(actionWrap);
 
-            return row;
+            wrap.appendChild(row);
+            wrap.appendChild(albumsContainer);
+
+            return wrap;
         }
 
         function runRequestMusicSearch() {
@@ -2159,6 +2289,40 @@
                 albumInput.addEventListener('input', function () {
                     window.clearTimeout(state.albumRequestSearchTimer);
                     state.albumRequestSearchTimer = window.setTimeout(runAlbumRequestSearch, 300);
+                });
+
+                var customLinkInput = document.getElementById('pmkCustomRequestLink');
+                var customNoteInput = document.getElementById('pmkCustomRequestNote');
+                var customSubmitButton = document.getElementById('pmkCustomRequestSubmit');
+                var customStatusEl = document.getElementById('pmkCustomRequestStatus');
+
+                customSubmitButton.addEventListener('click', function () {
+                    var link = customLinkInput.value.trim();
+                    if (!link) {
+                        customStatusEl.textContent = 'Enter a link first.';
+                        customStatusEl.className = 'pmk-status pmk-statusError';
+                        return;
+                    }
+
+                    customSubmitButton.disabled = true;
+                    customStatusEl.textContent = 'Submitting…';
+                    customStatusEl.className = 'pmk-status';
+
+                    apiPost('/PlaylistMaker/CustomRequests', {
+                        UserId: state.userId,
+                        Link: link,
+                        Note: customNoteInput.value.trim()
+                    }).then(function () {
+                        customStatusEl.textContent = 'Submitted — an admin will take a look.';
+                        customStatusEl.className = 'pmk-status pmk-statusOk';
+                        customLinkInput.value = '';
+                        customNoteInput.value = '';
+                    }).catch(function (err) {
+                        customStatusEl.textContent = (err && err.status === 429) ? err.message : 'Could not submit. Try again.';
+                        customStatusEl.className = 'pmk-status pmk-statusError';
+                    }).finally(function () {
+                        customSubmitButton.disabled = false;
+                    });
                 });
             }).catch(function () { /* feature not available - leave hidden */ });
         }
