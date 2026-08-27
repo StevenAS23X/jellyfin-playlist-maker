@@ -71,7 +71,36 @@ public class LidarrService : ILidarrService
             "/api/v1/artist/lookup?term=" + Uri.EscapeDataString(term),
             cancellationToken).ConfigureAwait(false);
 
-        return (results ?? new List<LidarrArtistLookupResult>())
+        var raw = results ?? new List<LidarrArtistLookupResult>();
+
+        // Diagnostic: users have repeatedly reported artist images not loading even after the
+        // fallback fix, while album images work fine. Rather than keep guessing from source code,
+        // log exactly what Lidarr actually sent for each result - whether RemotePoster/Images came
+        // back empty (a genuine Lidarr/metadata-source data gap) versus something in Images that
+        // ResolveImageUrl should be matching but isn't (an actual bug in this plugin).
+        if (raw.Count > 0)
+        {
+            var withPoster = raw.Count(r => !string.IsNullOrWhiteSpace(r.RemotePoster));
+            var withImages = raw.Count(r => r.Images is { Count: > 0 });
+            var coverTypesSeen = raw
+                .Where(r => r.Images is not null)
+                .SelectMany(r => r.Images!)
+                .Select(i => i.CoverType)
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            _logger.LogInformation(
+                "Lidarr artist search for '{Term}' returned {Count} result(s): {WithPoster} had RemotePoster, " +
+                "{WithImages} had a non-empty Images list (cover types seen: {CoverTypes})",
+                term,
+                raw.Count,
+                withPoster,
+                withImages,
+                coverTypesSeen.Count > 0 ? string.Join(", ", coverTypesSeen) : "none");
+        }
+
+        return raw
             .Where(r => !string.IsNullOrWhiteSpace(r.ForeignArtistId))
             .Select(r => new LidarrArtistDto
             {

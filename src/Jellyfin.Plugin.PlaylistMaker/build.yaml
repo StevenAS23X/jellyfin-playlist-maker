@@ -9,8 +9,19 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.7.0"
+version: "1.1.8.0"
 changelog: |
+  ## v1.1.8.0
+  - Add a favicon to the standalone app (/PlaylistMaker/App) so its browser tab shows a distinct
+    icon instead of the browser's generic globe placeholder.
+  - Add server-log diagnostics for artist search results: since users keep reporting missing
+    artist images even after the fallback fix (while album images work fine), Playlist Maker now
+    logs, per search, how many Lidarr results actually had RemotePoster/Images data at all and
+    which cover types were present. This will show definitively whether Lidarr itself isn't
+    sending artist image data for these results, or whether something is actually being missed on
+    this side - reproduce the missing-images search and check the Jellyfin server log for a line
+    starting "Lidarr artist search for" to see which.
+
   ## v1.1.7.0
   - Request an Artist no longer hides artists you already own part of the catalog for - they now
     show up with an "In your library" tag, so you can still find and browse them for albums
