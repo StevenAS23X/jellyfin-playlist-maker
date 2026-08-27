@@ -9,8 +9,22 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.6.0"
+version: "1.1.7.0"
 changelog: |
+  ## v1.1.7.0
+  - Request an Artist no longer hides artists you already own part of the catalog for - they now
+    show up with an "In your library" tag, so you can still find and browse them for albums
+    you're missing. The plain album-title search still excludes owned albums as before.
+  - The per-artist "Show Albums" list now shows every album/single, including ones already in
+    your library - those get a "In Library" checkmark instead of a Request button, so you can see
+    the full picture of what you have vs. what's missing.
+  - Investigated the missing artist images further against Lidarr's own source: the resolution
+    logic for artist and album images is structurally identical end to end, so this isn't a code
+    bug - artist "fan art" coverage from Lidarr's metadata source is genuinely much sparser than
+    album cover art coverage (which is close to universal). Results with no image at all now show
+    a music-note placeholder instead of a blank box, so it's clearer that's what's happening
+    rather than looking broken.
+
   ## v1.1.6.0
   - Request an Artist now lets you browse and request individual albums/singles from that
     artist's catalog ("Show Albums"), instead of only being able to request their entire

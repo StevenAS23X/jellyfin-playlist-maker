@@ -49,4 +49,11 @@ public class LidarrAlbumDto
     /// Gets or sets a remote cover image URL, if any.
     /// </summary>
     public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this album is already in the requesting user's
+    /// library. Only ever set when the caller chose to include owned albums instead of filtering
+    /// them out (the per-artist album browse); a plain album title search still excludes them.
+    /// </summary>
+    public bool IsOwned { get; set; }
 }

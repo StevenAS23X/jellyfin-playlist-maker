@@ -404,8 +404,10 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
-    /// Searches Lidarr for artists matching the given name, to request one be added. Artists
-    /// already present in the user's library are left out.
+    /// Searches Lidarr for artists matching the given name, to request one be added or to browse
+    /// their catalog for individual albums. Artists already present in the user's library are
+    /// still shown (flagged via <see cref="LidarrArtistDto.IsOwned"/>) rather than hidden, since a
+    /// partially-owned artist is exactly who someone browsing for more albums needs to find.
     /// </summary>
     /// <param name="userId">The requesting user id.</param>
     /// <param name="term">The search text.</param>
@@ -423,7 +425,12 @@ public class PlaylistMakerController : ControllerBase
             _recommendationService.GetArtists(userId).Select(NormalizeForMatch),
             StringComparer.Ordinal);
 
-        return Ok(results.Where(r => !ownedArtists.Contains(NormalizeForMatch(r.ArtistName))).ToList());
+        foreach (var result in results)
+        {
+            result.IsOwned = ownedArtists.Contains(NormalizeForMatch(result.ArtistName));
+        }
+
+        return Ok(results);
     }
 
     /// <summary>
@@ -431,7 +438,8 @@ public class PlaylistMakerController : ControllerBase
     /// release instead of their entire discography. Lidarr has no direct "list this not-yet-added
     /// artist's catalog" endpoint, so this searches albums by the artist's name and filters down to
     /// ones actually credited to their MusicBrainz id. Albums already present in the user's library
-    /// are left out.
+    /// are still included (flagged via <see cref="LidarrAlbumDto.IsOwned"/>) so browsing an
+    /// artist's catalog shows the full picture of what's owned vs. missing.
     /// </summary>
     /// <param name="userId">The requesting user id.</param>
     /// <param name="artistName">The artist's name, used as the album search term.</param>
@@ -451,11 +459,17 @@ public class PlaylistMakerController : ControllerBase
             _recommendationService.GetOwnedAlbums(userId).Select(a => OwnedAlbumKey(a.Artist, a.Title)),
             StringComparer.Ordinal);
 
-        return Ok(results
+        var artistAlbums = results
             .Where(r => string.Equals(r.ArtistForeignArtistId, foreignArtistId, StringComparison.Ordinal))
-            .Where(r => !ownedAlbums.Contains(OwnedAlbumKey(r.ArtistName, r.Title)))
             .OrderByDescending(r => r.ReleaseDate)
-            .ToList());
+            .ToList();
+
+        foreach (var album in artistAlbums)
+        {
+            album.IsOwned = ownedAlbums.Contains(OwnedAlbumKey(album.ArtistName, album.Title));
+        }
+
+        return Ok(artistAlbums);
     }
 
     /// <summary>

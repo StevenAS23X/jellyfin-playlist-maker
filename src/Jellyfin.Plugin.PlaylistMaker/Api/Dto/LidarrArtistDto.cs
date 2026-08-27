@@ -29,4 +29,10 @@ public class LidarrArtistDto
     /// Gets or sets a remote (Lidarr-hosted metadata source) poster image URL, if any.
     /// </summary>
     public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this artist already has at least one album in the
+    /// requesting user's library.
+    /// </summary>
+    public bool IsOwned { get; set; }
 }

@@ -838,6 +838,16 @@
             display: block;
         }
 
+        .pmk-requestArtPlaceholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            font-size: 1.3em;
+            color: #666;
+        }
+
         .pmk-requestInfo {
             min-width: 0;
             flex: 1;
@@ -845,6 +855,24 @@
 
         .pmk-requestName {
             font-weight: 600;
+        }
+
+        .pmk-ownedBadge {
+            display: inline-block;
+            margin-left: 0.6em;
+            padding: 0.1em 0.6em;
+            border-radius: 999px;
+            background: rgba(63, 191, 95, 0.18);
+            color: #3fbf5f;
+            font-size: 0.72em;
+            font-weight: 500;
+            vertical-align: middle;
+        }
+
+        .pmk-ownedTag {
+            flex-shrink: 0;
+            cursor: default;
+            white-space: nowrap;
         }
 
         .pmk-requestMeta {
@@ -1993,6 +2021,24 @@
                 });
         }
 
+        function buildRequestArt(imageUrl) {
+            var art = document.createElement('div');
+            art.className = 'pmk-requestArt';
+            if (imageUrl) {
+                var img = document.createElement('img');
+                img.src = imageUrl;
+                img.alt = '';
+                img.loading = 'lazy';
+                art.appendChild(img);
+            } else {
+                var placeholder = document.createElement('span');
+                placeholder.className = 'pmk-requestArtPlaceholder';
+                placeholder.textContent = '♪';
+                art.appendChild(placeholder);
+            }
+            return art;
+        }
+
         function buildRequestRow(artist) {
             var wrap = document.createElement('div');
             wrap.className = 'pmk-requestArtistWrap';
@@ -2000,16 +2046,7 @@
             var row = document.createElement('div');
             row.className = 'pmk-requestRow';
 
-            var art = document.createElement('div');
-            art.className = 'pmk-requestArt';
-            if (artist.ImageUrl) {
-                var img = document.createElement('img');
-                img.src = artist.ImageUrl;
-                img.alt = '';
-                img.loading = 'lazy';
-                art.appendChild(img);
-            }
-            row.appendChild(art);
+            row.appendChild(buildRequestArt(artist.ImageUrl));
 
             var info = document.createElement('div');
             info.className = 'pmk-requestInfo';
@@ -2017,6 +2054,12 @@
             var name = document.createElement('div');
             name.className = 'pmk-requestName';
             name.textContent = artist.ArtistName + (artist.Disambiguation ? ' (' + artist.Disambiguation + ')' : '');
+            if (artist.IsOwned) {
+                var ownedBadge = document.createElement('span');
+                ownedBadge.className = 'pmk-ownedBadge';
+                ownedBadge.textContent = 'In your library';
+                name.appendChild(ownedBadge);
+            }
             info.appendChild(name);
 
             if (artist.Overview) {
@@ -2165,16 +2208,7 @@
             var row = document.createElement('div');
             row.className = 'pmk-requestRow';
 
-            var art = document.createElement('div');
-            art.className = 'pmk-requestArt';
-            if (album.ImageUrl) {
-                var img = document.createElement('img');
-                img.src = album.ImageUrl;
-                img.alt = '';
-                img.loading = 'lazy';
-                art.appendChild(img);
-            }
-            row.appendChild(art);
+            row.appendChild(buildRequestArt(album.ImageUrl));
 
             var info = document.createElement('div');
             info.className = 'pmk-requestInfo';
@@ -2197,6 +2231,14 @@
             info.appendChild(meta);
 
             row.appendChild(info);
+
+            if (album.IsOwned) {
+                var ownedTag = document.createElement('span');
+                ownedTag.className = 'pmk-requestAction pmk-requestActionDone pmk-ownedTag';
+                ownedTag.textContent = '✓ In Library';
+                row.appendChild(ownedTag);
+                return row;
+            }
 
             var action = document.createElement('button');
             action.type = 'button';
