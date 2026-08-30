@@ -145,18 +145,32 @@ tag is pushed, and publishes/updates `manifest.json` + the built plugin zip on t
 ## Optional: a quick-access button in the Jellyfin web UI
 
 Since `/PlaylistMaker/App` is a separate page outside `jellyfin-web`, there's nothing
-in the stock Jellyfin UI that links to it. If your setup already has a way to inject
-custom CSS/JS into the Jellyfin web client — the built-in **Dashboard → General →
-Custom CSS** field covers the CSS half; the JS half needs something outside Jellyfin
-itself, e.g. a `<script>` tag added directly to `jellyfin-web`'s `index.html`, or a
-reverse-proxy rule (nginx `sub_filter`, Caddy `replace`, etc.) that inserts one — the
-snippet below adds a "Playlist Maker" button to the Playlists page that opens the app
-in a new tab.
+in the stock Jellyfin UI that links to it. **This entire section is optional** —
+Playlist Maker itself needs none of this; it's purely a convenience for anyone who
+already has a way to inject custom CSS/JS into the Jellyfin web client. The built-in
+**Dashboard → General → Custom CSS** field covers the CSS half. The JS half needs
+something outside Jellyfin itself, since there's no built-in field for it — a
+community "JavaScript Injector"-style plugin is a straightforward option if you'd
+rather not touch server files (search your plugin repositories for one; not something
+this project bundles or endorses a specific fork of); a `<script>` tag added directly
+to `jellyfin-web`'s `index.html`, or a reverse-proxy rule (nginx `sub_filter`, Caddy
+`replace`, etc.) work just as well.
+
+The snippet below adds a floating "Playlist Maker" button, shown while you're browsing
+a music library's tabs (Albums, Suggestions, Album artists, Artists, Playlists, Songs,
+Genres — detected by tab label, so it follows you across whichever one is active
+instead of only appearing on Playlists). Clicking it opens the app in a small
+draggable, resizable panel docked over the page — a mini browser rather than a second
+tab — with its own "open in a new tab" and close buttons in the panel header.
 
 Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
 
 ```css
 #jfPlaylistMakerButton {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1000;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -164,23 +178,21 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     min-height: 40px;
     padding: 0.65em 1.15em;
     border: 0;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    background: #00A4DC;
     color: #fff;
     font-size: 1rem;
     font-weight: 500;
     line-height: 1;
-    text-decoration: none;
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 #jfPlaylistMakerButton:hover {
-    background: rgba(255, 255, 255, 0.20);
+    background: #0090c2;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    color: #fff;
-    text-decoration: none;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 #jfPlaylistMakerButton:active {
@@ -188,8 +200,8 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
 }
 
 #jfPlaylistMakerButton:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 3px;
+    outline: 2px solid #fff;
+    outline-offset: 2px;
 }
 
 #jfPlaylistMakerButton .playlistMakerIcon {
@@ -198,11 +210,71 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     line-height: 1;
 }
 
-.jfPlaylistMakerContainer {
+#jfPlaylistMakerPanel {
+    position: fixed;
+    right: 20px;
+    bottom: 76px;
+    z-index: 1001;
+    width: 420px;
+    height: 640px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 100px);
+    min-width: 280px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    resize: both;
+}
+
+#jfPlaylistMakerPanel[hidden] {
+    display: none;
+}
+
+#jfPlaylistMakerPanelHeader {
     display: flex;
     align-items: center;
-    gap: 0.75em;
-    margin: 0.5em 0 1em 0;
+    justify-content: space-between;
+    flex-shrink: 0;
+    padding: 0.5em 0.4em 0.5em 0.9em;
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: move;
+    user-select: none;
+}
+
+#jfPlaylistMakerPanelActions {
+    display: flex;
+    gap: 0.2em;
+}
+
+#jfPlaylistMakerPanelActions button {
+    padding: 0.35em 0.5em;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #ccc;
+    font-size: 1em;
+    line-height: 1;
+    cursor: pointer;
+}
+
+#jfPlaylistMakerPanelActions button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+#jfPlaylistMakerPanel iframe {
+    flex: 1;
+    width: 100%;
+    border: 0;
+    background: #0d0d0d;
 }
 ```
 
@@ -214,80 +286,133 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     const PLAYLIST_MAKER_URL = "https://your-jellyfin-server.example.com/PlaylistMaker/App";
 
     const BUTTON_ID = "jfPlaylistMakerButton";
-    const CONTAINER_CLASS = "jfPlaylistMakerContainer";
+    const PANEL_ID = "jfPlaylistMakerPanel";
 
-    function isPlaylistsPage() {
-        const hash = window.location.hash.toLowerCase();
-        const path = window.location.pathname.toLowerCase();
-        return hash.includes("playlists") || path.includes("playlists");
+    // Tab labels from a music library's own tab strip (Albums / Suggestions / Album
+    // artists / Artists / Playlists / Songs / Genres). Matched by exact rendered text
+    // rather than a specific CSS class or URL pattern, so it keeps working across
+    // Jellyfin versions/skins and follows you across whichever tab is active.
+    const LIBRARY_TAB_LABELS = new Set([
+        "Albums", "Suggestions", "Album artists", "Artists", "Playlists", "Songs", "Genres"
+    ]);
+
+    function isOnMusicLibraryTab() {
+        const clickable = document.querySelectorAll("button, a");
+        for (const el of clickable) {
+            if (LIBRARY_TAB_LABELS.has((el.textContent || "").trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function createButton() {
-        const button = document.createElement("a");
+        const button = document.createElement("button");
+        button.type = "button";
         button.id = BUTTON_ID;
-        button.href = PLAYLIST_MAKER_URL;
-        button.target = "_blank";
-        button.rel = "noopener noreferrer";
-        button.setAttribute("aria-label", "Open Playlist Maker in a new tab");
+        button.setAttribute("aria-label", "Open Playlist Maker");
         button.innerHTML = `
             <span class="playlistMakerIcon material-icons" aria-hidden="true">playlist_add</span>
             <span>Playlist Maker</span>
         `;
+        button.addEventListener("click", togglePanel);
         return button;
     }
 
-    function findTarget() {
-        const selectors = [
-            ".view-playlists .sectionTitleContainer",
-            ".view-playlists .header",
-            "[data-type='playlists'] .sectionTitleContainer",
-            ".pageTitleWithLogo",
-            ".sectionTitleContainer",
-            ".padded-left.padded-right"
-        ];
-        for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                return element;
-            }
-        }
-        return null;
-    }
+    function makeDraggable(panel, handle) {
+        let dragging = false;
+        let startX = 0;
+        let startY = 0;
+        let startLeft = 0;
+        let startTop = 0;
 
-    function removeDuplicates() {
-        document.querySelectorAll(`#${BUTTON_ID}`).forEach((button, index) => {
-            if (index === 0) {
+        handle.addEventListener("mousedown", (e) => {
+            if (e.target.closest("button")) {
                 return;
             }
-            const container = button.closest(`.${CONTAINER_CLASS}`);
-            (container || button).remove();
+            dragging = true;
+            const rect = panel.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+            panel.style.right = "auto";
+            panel.style.bottom = "auto";
+            e.preventDefault();
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!dragging) {
+                return;
+            }
+            panel.style.left = Math.max(0, startLeft + (e.clientX - startX)) + "px";
+            panel.style.top = Math.max(0, startTop + (e.clientY - startY)) + "px";
+        });
+
+        window.addEventListener("mouseup", () => {
+            dragging = false;
         });
     }
 
+    let panel = null;
+
+    function ensurePanel() {
+        if (panel) {
+            return panel;
+        }
+
+        panel = document.createElement("div");
+        panel.id = PANEL_ID;
+        panel.hidden = true;
+
+        const header = document.createElement("div");
+        header.id = "jfPlaylistMakerPanelHeader";
+        header.innerHTML = `<span>Playlist Maker</span>`;
+
+        const actions = document.createElement("div");
+        actions.id = "jfPlaylistMakerPanelActions";
+
+        const openTab = document.createElement("button");
+        openTab.type = "button";
+        openTab.title = "Open in a new tab";
+        openTab.textContent = "⤢";
+        openTab.addEventListener("click", () => window.open(PLAYLIST_MAKER_URL, "_blank", "noopener,noreferrer"));
+
+        const close = document.createElement("button");
+        close.type = "button";
+        close.title = "Close";
+        close.textContent = "✕";
+        close.addEventListener("click", () => { panel.hidden = true; });
+
+        actions.append(openTab, close);
+        header.appendChild(actions);
+        panel.appendChild(header);
+
+        const iframe = document.createElement("iframe");
+        iframe.src = PLAYLIST_MAKER_URL;
+        iframe.title = "Playlist Maker";
+        panel.appendChild(iframe);
+
+        makeDraggable(panel, header);
+        document.body.appendChild(panel);
+        return panel;
+    }
+
+    function togglePanel() {
+        const p = ensurePanel();
+        p.hidden = !p.hidden;
+    }
+
     function update() {
-        if (!isPlaylistsPage()) {
-            const existing = document.querySelector(`.${CONTAINER_CLASS}`);
-            if (existing) {
-                existing.remove();
-            }
-            return;
+        const shouldShow = isOnMusicLibraryTab();
+        let button = document.getElementById(BUTTON_ID);
+
+        if (shouldShow && !button) {
+            button = createButton();
+            document.body.appendChild(button);
+        } else if (!shouldShow && button) {
+            button.remove();
         }
-
-        if (document.getElementById(BUTTON_ID)) {
-            return;
-        }
-
-        const target = findTarget();
-        if (!target) {
-            return;
-        }
-
-        const container = document.createElement("div");
-        container.className = CONTAINER_CLASS;
-        container.appendChild(createButton());
-        target.insertAdjacentElement("afterend", container);
-
-        removeDuplicates();
     }
 
     window.addEventListener("hashchange", update);
@@ -296,8 +421,10 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
 
     // Jellyfin's web client is a single-page app - it swaps page content in place
     // without a full reload, so hashchange/popstate alone miss most in-app
-    // navigation. This watches for that DOM churn and re-adds the button whenever
-    // the Playlists page is (re)rendered.
+    // navigation (including switching between tabs within the same library view).
+    // This watches for that DOM churn and re-evaluates whether the button should
+    // show. The panel itself (once opened) is appended straight to <body> and is
+    // left alone here - it stays open across navigation until you close it.
     new MutationObserver(update).observe(document.documentElement, {
         childList: true,
         subtree: true

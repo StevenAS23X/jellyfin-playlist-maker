@@ -505,6 +505,15 @@
             padding: 1em 0.3em;
         }
 
+        .pmk-searching {
+            animation: pmk-pulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pmk-pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
         .pmk-draftHeader {
             display: flex;
             align-items: center;
@@ -1187,6 +1196,8 @@
             lastShownRecommendedIds: [],
             requestSearchTimer: null,
             albumRequestSearchTimer: null,
+            requestSearchGeneration: 0,
+            albumRequestSearchGeneration: 0,
             quickConnectSecret: null,
             quickConnectTimer: null,
             playingTrackId: null,
@@ -2171,11 +2182,20 @@
             return wrap;
         }
 
+        function showSearching(container) {
+            clearChildren(container);
+            var searching = document.createElement('p');
+            searching.className = 'pmk-empty pmk-searching';
+            searching.textContent = 'Searching…';
+            container.appendChild(searching);
+        }
+
         function runRequestMusicSearch() {
             var resultsEl = document.getElementById('pmkRequestResults');
             var term = document.getElementById('pmkRequestSearchInput').value.trim();
 
             if (!term) {
+                state.requestSearchGeneration++;
                 clearChildren(resultsEl);
                 var empty = document.createElement('p');
                 empty.className = 'pmk-empty';
@@ -2184,7 +2204,16 @@
                 return;
             }
 
+            // A newer search can start (typing continued, or Enter was pressed) before an older
+            // one's response comes back - track a generation token so a slow, stale response can't
+            // clobber newer results once it finally arrives.
+            var generation = ++state.requestSearchGeneration;
+            showSearching(resultsEl);
+
             apiGet('/PlaylistMaker/MusicRequests/Search', { userId: state.userId, term: term }).then(function (artists) {
+                if (generation !== state.requestSearchGeneration) {
+                    return;
+                }
                 clearChildren(resultsEl);
                 if (!artists || artists.length === 0) {
                     var none = document.createElement('p');
@@ -2197,6 +2226,9 @@
                     resultsEl.appendChild(buildRequestRow(artist));
                 });
             }).catch(function () {
+                if (generation !== state.requestSearchGeneration) {
+                    return;
+                }
                 clearChildren(resultsEl);
                 var err = document.createElement('p');
                 err.className = 'pmk-empty';
@@ -2287,6 +2319,7 @@
             var term = document.getElementById('pmkAlbumRequestSearchInput').value.trim();
 
             if (!term) {
+                state.albumRequestSearchGeneration++;
                 clearChildren(resultsEl);
                 var empty = document.createElement('p');
                 empty.className = 'pmk-empty';
@@ -2295,7 +2328,13 @@
                 return;
             }
 
+            var generation = ++state.albumRequestSearchGeneration;
+            showSearching(resultsEl);
+
             apiGet('/PlaylistMaker/MusicRequests/Albums/Search', { userId: state.userId, term: term }).then(function (albums) {
+                if (generation !== state.albumRequestSearchGeneration) {
+                    return;
+                }
                 clearChildren(resultsEl);
                 if (!albums || albums.length === 0) {
                     var none = document.createElement('p');
@@ -2308,6 +2347,9 @@
                     resultsEl.appendChild(buildAlbumRequestRow(album));
                 });
             }).catch(function () {
+                if (generation !== state.albumRequestSearchGeneration) {
+                    return;
+                }
                 clearChildren(resultsEl);
                 var err = document.createElement('p');
                 err.className = 'pmk-empty';
@@ -2328,10 +2370,22 @@
                     window.clearTimeout(state.requestSearchTimer);
                     state.requestSearchTimer = window.setTimeout(runRequestMusicSearch, 300);
                 });
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        window.clearTimeout(state.requestSearchTimer);
+                        runRequestMusicSearch();
+                    }
+                });
                 var albumInput = document.getElementById('pmkAlbumRequestSearchInput');
                 albumInput.addEventListener('input', function () {
                     window.clearTimeout(state.albumRequestSearchTimer);
                     state.albumRequestSearchTimer = window.setTimeout(runAlbumRequestSearch, 300);
+                });
+                albumInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        window.clearTimeout(state.albumRequestSearchTimer);
+                        runAlbumRequestSearch();
+                    }
                 });
 
                 var customLinkInput = document.getElementById('pmkCustomRequestLink');

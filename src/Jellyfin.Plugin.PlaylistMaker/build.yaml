@@ -9,8 +9,18 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.8.0"
+version: "1.1.9.0"
 changelog: |
+  ## v1.1.9.0
+  - Request Music search boxes (artist and album) now show a "Searching…" indicator the moment a
+    search starts, instead of leaving stale results/empty-state text visible with no feedback
+    until the response arrives.
+  - Pressing Enter in either search box now runs the search immediately instead of waiting out the
+    normal 300ms typing debounce.
+  - Fixed a race condition where typing quickly (or pressing Enter right after typing) could fire
+    two overlapping searches, and a slower older response could land after a newer one and
+    overwrite it with stale results - only the latest search's response is now ever applied.
+
   ## v1.1.8.0
   - Add a favicon to the standalone app (/PlaylistMaker/App) so its browser tab shows a distinct
     icon instead of the browser's generic globe placeholder.
