@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Jellyfin.Plugin.PlaylistMaker</RootNamespace>
@@ -12,22 +12,23 @@
 
   <ItemGroup>
     <!--
-      Version and TargetFramework above must match the actual server. Jellyfin 10.11.x moved its
-      host process from .NET 8 to .NET 9 (confirmed via the Jellyfin.Controller 10.11.x nuspec,
-      which only ships a net9.0 lib group) - that's the real cause of the
-      TypeLoadException/MissingMethodException on types like Jellyfin.Data.Entities.User seen
-      when this plugin was compiled for net8.0/10.9.*: the plugin DLL was being loaded into a
-      .NET 9 host process, a genuine runtime ABI break, not just a NuGet version mismatch.
-      ExcludeAssets="runtime" keeps `dotnet publish` from copying the host's own assemblies into
-      this plugin's output folder so only the host's copies are ever loaded.
-
-      As of 10.11.x the User entity also moved out of the Jellyfin.Data package into its own
-      Jellyfin.Database.Implementations package (namespace Jellyfin.Database.Implementations.Entities),
-      confirmed against the actual v10.11.11 server source - Jellyfin.Controller's own nuspec no
-      longer pulls it in transitively, so it must be referenced directly.
+      PREP BRANCH for Jellyfin 12.0 (not yet stable/released). Jellyfin 12.0 is the renumbered
+      successor to 10.11.x, not a hard plugin-API break (per Jellyfin's own "State of the Fin"
+      statement). Confirmed directly against the jellyfin/jellyfin source at tags v12.0-rc4 and
+      v12.0-rc6 (identical on both points across those RCs):
+        - The host runtime moves from .NET 9 to .NET 10, so TargetFramework must be net10.0.
+        - IPlaylistManager.AddItemToPlaylistAsync gained an inserted `int? position` parameter:
+          (Guid playlistId, IReadOnlyCollection<Guid> itemIds, int? position, Guid userId).
+      Everything else this plugin touches (BasePlugin<T>, IPluginServiceRegistrator,
+      IHasWebPages/PluginPageInfo, Jellyfin.Database.Implementations.Entities.User,
+      InternalItemsQuery.GenreIds/AlbumIds, IProviderManager.SaveImage, ILibraryManager.GetItemList,
+      IUserDataManager.GetUserData, Playlist.OwnerUserId/OpenAccess/Shares, LinkedChild.ItemId,
+      BaseItem.HasImage/UpdateToRepositoryAsync) was verified unchanged against the same RC source.
+      Do not merge this branch's csproj/package versions into the production branch until 12.0
+      actually ships stable - the production branch must keep targeting net9.0/10.11.* until then.
     -->
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.*" ExcludeAssets="runtime" />
-    <PackageReference Include="Jellyfin.Database.Implementations" Version="10.11.*" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Controller" Version="12.0.0-rc6" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Database.Implementations" Version="12.0.0-rc6" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>

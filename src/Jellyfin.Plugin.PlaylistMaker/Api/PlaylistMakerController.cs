@@ -385,7 +385,9 @@ public class PlaylistMakerController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult> AddItems([FromRoute] Guid playlistId, [FromBody] AddItemsRequestDto request)
     {
-        await _playlistManager.AddItemToPlaylistAsync(playlistId, request.ItemIds.ToList(), request.UserId)
+        // Jellyfin 12.0 (prep branch) inserted a new `int? position` parameter into
+        // AddItemToPlaylistAsync; null preserves the previous append-at-end behavior.
+        await _playlistManager.AddItemToPlaylistAsync(playlistId, request.ItemIds.ToList(), null, request.UserId)
             .ConfigureAwait(false);
 
         return NoContent();
