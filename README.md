@@ -161,7 +161,14 @@ a music library's tabs (Albums, Suggestions, Album artists, Artists, Playlists, 
 Genres — detected by tab label, so it follows you across whichever one is active
 instead of only appearing on Playlists). Clicking it opens the app in a small
 draggable, resizable panel docked over the page — a mini browser rather than a second
-tab — with its own "open in a new tab" and close buttons in the panel header.
+tab — with its own drag handle to move it, a grip in the bottom-right corner to resize
+it, and buttons in the header to pop it out to a real, separate browser window (which
+gets you genuine OS-level window behavior — dragging to a screen edge to snap, moving
+between monitors, resizing via the window's own chrome — since at that point it's a
+real window, not something this script has to fake), open it in a normal tab, or close
+it. The resize/drag handles specifically avoid the classic "dragging over an iframe
+eats your mouse events" bug (they briefly disable pointer events on the iframe while a
+drag or resize is in progress).
 
 Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
 
@@ -228,7 +235,27 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 10px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-    resize: both;
+}
+
+#jfPlaylistMakerResizeHandle {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: nwse-resize;
+    z-index: 2;
+    user-select: none;
+}
+
+#jfPlaylistMakerResizeHandle:hover {
+    color: rgba(255, 255, 255, 0.85);
 }
 
 #jfPlaylistMakerPanel[hidden] {
@@ -319,7 +346,12 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         return button;
     }
 
-    function makeDraggable(panel, handle) {
+    // Dragging or resizing a panel that contains an iframe is a classic trap: the moment the
+    // mouse crosses over the iframe mid-drag, mousemove events start firing inside the iframe's
+    // own document instead of this page's window, and the drag effectively stalls. Disabling
+    // pointer-events on the iframe for the duration of the interaction routes every mouse event
+    // back through this page instead.
+    function makeDraggable(panel, handle, iframe) {
         let dragging = false;
         let startX = 0;
         let startY = 0;
@@ -338,6 +370,7 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
             startTop = rect.top;
             panel.style.right = "auto";
             panel.style.bottom = "auto";
+            iframe.style.pointerEvents = "none";
             e.preventDefault();
         });
 
@@ -350,8 +383,67 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         });
 
         window.addEventListener("mouseup", () => {
-            dragging = false;
+            if (dragging) {
+                dragging = false;
+                iframe.style.pointerEvents = "";
+            }
         });
+    }
+
+    function makeResizable(panel, handle, iframe) {
+        let resizing = false;
+        let startX = 0;
+        let startY = 0;
+        let startWidth = 0;
+        let startHeight = 0;
+
+        handle.addEventListener("mousedown", (e) => {
+            resizing = true;
+            const rect = panel.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = rect.width;
+            startHeight = rect.height;
+            // The panel starts anchored by right/bottom (see #jfPlaylistMakerPanel), so growing
+            // its width/height alone would expand it up and to the left - away from the corner
+            // the user is actually dragging. Pin its current position as left/top first (a no-op
+            // visually) so the top-left corner stays put and the bottom-right corner follows the
+            // mouse, the way a resize handle is expected to behave.
+            panel.style.left = rect.left + "px";
+            panel.style.top = rect.top + "px";
+            panel.style.right = "auto";
+            panel.style.bottom = "auto";
+            iframe.style.pointerEvents = "none";
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!resizing) {
+                return;
+            }
+            panel.style.width = Math.max(280, startWidth + (e.clientX - startX)) + "px";
+            panel.style.height = Math.max(300, startHeight + (e.clientY - startY)) + "px";
+        });
+
+        window.addEventListener("mouseup", () => {
+            if (resizing) {
+                resizing = false;
+                iframe.style.pointerEvents = "";
+            }
+        });
+    }
+
+    function popOutToWindow(panel) {
+        const rect = panel.getBoundingClientRect();
+        const width = Math.max(360, Math.round(rect.width));
+        const height = Math.max(420, Math.round(rect.height));
+        window.open(
+            PLAYLIST_MAKER_URL,
+            "playlistMakerPopout",
+            `popup=yes,width=${width},height=${height},resizable=yes,scrollbars=yes`
+        );
+        panel.hidden = true;
     }
 
     let panel = null;
@@ -372,6 +464,12 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         const actions = document.createElement("div");
         actions.id = "jfPlaylistMakerPanelActions";
 
+        const popOut = document.createElement("button");
+        popOut.type = "button";
+        popOut.title = "Pop out to a real window (drag to a screen edge to snap it, like any other window)";
+        popOut.textContent = "⧉";
+        popOut.addEventListener("click", () => popOutToWindow(panel));
+
         const openTab = document.createElement("button");
         openTab.type = "button";
         openTab.title = "Open in a new tab";
@@ -384,7 +482,7 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         close.textContent = "✕";
         close.addEventListener("click", () => { panel.hidden = true; });
 
-        actions.append(openTab, close);
+        actions.append(popOut, openTab, close);
         header.appendChild(actions);
         panel.appendChild(header);
 
@@ -393,7 +491,14 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         iframe.title = "Playlist Maker";
         panel.appendChild(iframe);
 
-        makeDraggable(panel, header);
+        const resizeHandle = document.createElement("div");
+        resizeHandle.id = "jfPlaylistMakerResizeHandle";
+        resizeHandle.title = "Drag to resize";
+        resizeHandle.textContent = "⤡";
+        panel.appendChild(resizeHandle);
+
+        makeDraggable(panel, header, iframe);
+        makeResizable(panel, resizeHandle, iframe);
         document.body.appendChild(panel);
         return panel;
     }
