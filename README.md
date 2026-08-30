@@ -170,6 +170,14 @@ it. The resize/drag handles specifically avoid the classic "dragging over an ifr
 eats your mouse events" bug (they briefly disable pointer events on the iframe while a
 drag or resize is in progress).
 
+The button hides itself while a video is playing (Jellyfin's SPA can leave a library
+tab's DOM mounted underneath the video overlay, so it checks for an active `<video>`
+element rather than trusting tab detection alone) — it's only ever shown while you're
+actually browsing. Right-clicking the button toggles it off: it shrinks to a small,
+translucent icon-only handle in the same corner (rather than disappearing entirely)
+so there's still something to click to bring it back to full size, and the preference
+is remembered per-browser via `localStorage`.
+
 Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
 
 ```css
@@ -215,6 +223,24 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     font-family: "Material Icons";
     font-size: 1.4em;
     line-height: 1;
+}
+
+/* Applied when you've right-clicked the button to turn it off - it shrinks to a
+   small, translucent icon-only handle instead of disappearing completely, so
+   there's still something to click to bring it back. */
+#jfPlaylistMakerButton.pmMinimized {
+    min-height: 0;
+    padding: 0.55em;
+    opacity: 0.5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#jfPlaylistMakerButton.pmMinimized span:not(.playlistMakerIcon) {
+    display: none;
+}
+
+#jfPlaylistMakerButton.pmMinimized:hover {
+    opacity: 1;
 }
 
 #jfPlaylistMakerPanel {
@@ -333,16 +359,70 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         return false;
     }
 
+    // Jellyfin's video player mounts a plain <video> element for playback (audio-only
+    // playback uses <audio> instead), so this is a reliable, skin-agnostic signal that
+    // playback is active - unlike tab-label detection, which can still see a music
+    // library tab's own DOM sitting underneath the video overlay.
+    function isVideoPlaying() {
+        const videos = document.querySelectorAll("video");
+        for (const video of videos) {
+            if (!video.paused && !video.ended && video.readyState > 2) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    const HIDDEN_STORAGE_KEY = "jfPlaylistMakerHidden";
+
+    function isUserHidden() {
+        try {
+            return localStorage.getItem(HIDDEN_STORAGE_KEY) === "1";
+        } catch {
+            return false;
+        }
+    }
+
+    function setUserHidden(hidden) {
+        try {
+            if (hidden) {
+                localStorage.setItem(HIDDEN_STORAGE_KEY, "1");
+            } else {
+                localStorage.removeItem(HIDDEN_STORAGE_KEY);
+            }
+        } catch {
+            // Storage unavailable (private browsing, etc.) - the toggle just won't persist.
+        }
+    }
+
     function createButton() {
         const button = document.createElement("button");
         button.type = "button";
         button.id = BUTTON_ID;
-        button.setAttribute("aria-label", "Open Playlist Maker");
         button.innerHTML = `
             <span class="playlistMakerIcon material-icons" aria-hidden="true">playlist_add</span>
             <span>Playlist Maker</span>
         `;
-        button.addEventListener("click", togglePanel);
+        button.addEventListener("click", () => {
+            if (isUserHidden()) {
+                setUserHidden(false);
+                update();
+                return;
+            }
+            togglePanel();
+        });
+        // Right-click toggles the button off/on instead of opening the browser's own
+        // context menu - the minimized state (see .pmMinimized) stays clickable so
+        // there's always a way to turn it back on without touching localStorage by hand.
+        button.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            const hidden = !isUserHidden();
+            setUserHidden(hidden);
+            if (hidden && panel && !panel.hidden) {
+                panel.hidden = true;
+            }
+            update();
+        });
         return button;
     }
 
@@ -509,20 +589,43 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     }
 
     function update() {
-        const shouldShow = isOnMusicLibraryTab();
+        const shouldShow = isOnMusicLibraryTab() && !isVideoPlaying();
         let button = document.getElementById(BUTTON_ID);
 
-        if (shouldShow && !button) {
+        if (!shouldShow) {
+            if (button) {
+                button.remove();
+            }
+            return;
+        }
+
+        if (!button) {
             button = createButton();
             document.body.appendChild(button);
-        } else if (!shouldShow && button) {
-            button.remove();
         }
+
+        const minimized = isUserHidden();
+        button.classList.toggle("pmMinimized", minimized);
+        button.setAttribute(
+            "aria-label",
+            minimized ? "Playlist Maker (hidden - click to restore)" : "Open Playlist Maker"
+        );
+        button.title = minimized
+            ? "Playlist Maker is hidden - click to restore, right-click to keep it visible"
+            : "Open Playlist Maker (right-click to hide)";
     }
 
     window.addEventListener("hashchange", update);
     window.addEventListener("popstate", update);
     document.addEventListener("DOMContentLoaded", update);
+
+    // play/pause/ended are property changes on the <video> element, not DOM mutations,
+    // so the MutationObserver below won't see them - listen directly (capture: true,
+    // since these events don't bubble) so the button hides/reappears the instant
+    // playback actually starts or stops instead of waiting on unrelated DOM churn.
+    document.addEventListener("play", update, true);
+    document.addEventListener("pause", update, true);
+    document.addEventListener("ended", update, true);
 
     // Jellyfin's web client is a single-page app - it swaps page content in place
     // without a full reload, so hashchange/popstate alone miss most in-app
