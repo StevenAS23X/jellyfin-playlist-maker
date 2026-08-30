@@ -178,6 +178,11 @@ translucent icon-only handle in the same corner (rather than disappearing entire
 so there's still something to click to bring it back to full size, and the preference
 is remembered per-browser via `localStorage`.
 
+It also auto-hides on TV clients (webOS, Tizen, Android TV/Fire TV browsers, and
+other smart-TV/set-top user agents) — a mouse-dragged floating panel with a
+window-popout option doesn't translate to a remote control, so rather than fight
+that it just stays out of the way there; no toggle needed for this one.
+
 Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
 
 ```css
@@ -371,6 +376,23 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
             }
         }
         return false;
+    }
+
+    // A remote-driven 10-foot layout is an awkward fit for a mouse-dragged floating
+    // panel with a browser-window popout, so the button auto-hides on TV clients
+    // rather than trying to make dragging/resizing work with a D-pad. webOS and
+    // Tizen's official Jellyfin TV apps run jellyfin-web in a plain WebView (so this
+    // script does run there), unlike the native Android TV/Fire TV apps, which don't
+    // execute injected web JS at all. User-agent sniffing is the primary signal;
+    // Jellyfin's own "10-foot" layout class (added to <html>/<body> when it detects a
+    // TV device) is checked too, as a second, independent signal on top of it.
+    function isTvClient() {
+        const ua = navigator.userAgent || "";
+        if (/Tizen|Web0S|SmartTV|GoogleTV|Android.?TV|AFT[A-Z]|BRAVIA|HbbTV|NetCast|VIDAA|CrKey|Roku/i.test(ua)) {
+            return true;
+        }
+        const rootClasses = `${document.documentElement.className} ${document.body ? document.body.className : ""}`;
+        return /(^|[\s-])tv([\s-]|$)/i.test(rootClasses);
     }
 
     const HIDDEN_STORAGE_KEY = "jfPlaylistMakerHidden";
@@ -589,7 +611,7 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     }
 
     function update() {
-        const shouldShow = isOnMusicLibraryTab() && !isVideoPlaying();
+        const shouldShow = isOnMusicLibraryTab() && !isVideoPlaying() && !isTvClient();
         let button = document.getElementById(BUTTON_ID);
 
         if (!shouldShow) {
