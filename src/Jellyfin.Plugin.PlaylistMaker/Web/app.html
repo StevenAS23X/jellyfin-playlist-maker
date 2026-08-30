@@ -627,6 +627,35 @@
             justify-content: space-between;
         }
 
+        .pmk-panelHeaderRow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pmk-panelHeaderActions {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+        }
+
+        .pmk-collapseToggle {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #b3b3b3;
+            border-radius: 50%;
+            width: 2.2em;
+            height: 2.2em;
+            cursor: pointer;
+            font-size: 0.9em;
+            flex-shrink: 0;
+        }
+
+        .pmk-collapseToggle:hover {
+            border-color: rgba(0, 164, 220, 0.9);
+            color: rgba(0, 164, 220, 0.9);
+        }
+
         .pmk-shuffleButton {
             background: transparent;
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -1087,11 +1116,16 @@
             <section class="pmk-panel pmk-recommend">
                 <div class="pmk-recommendHeader">
                     <h2>Recommended For You</h2>
-                    <button type="button" id="pmkShuffleButton" class="pmk-shuffleButton" title="Refresh suggestions">&#8635;</button>
+                    <div class="pmk-panelHeaderActions">
+                        <button type="button" id="pmkShuffleButton" class="pmk-shuffleButton" title="Refresh suggestions">&#8635;</button>
+                        <button type="button" id="pmkRecommendToggle" class="pmk-collapseToggle" title="Collapse">&#9662;</button>
+                    </div>
                 </div>
-                <p class="pmk-recommendHint" id="pmkRecommendHint">Popular in your library. Add a track or pick a genre/artist to personalize these.</p>
-                <div class="pmk-results" id="pmkRecommendResults">
-                    <p class="pmk-empty">Loading recommendations&hellip;</p>
+                <div id="pmkRecommendBody">
+                    <p class="pmk-recommendHint" id="pmkRecommendHint">Popular in your library. Add a track or pick a genre/artist to personalize these.</p>
+                    <div class="pmk-results" id="pmkRecommendResults">
+                        <p class="pmk-empty">Loading recommendations&hellip;</p>
+                    </div>
                 </div>
             </section>
 
@@ -1119,38 +1153,43 @@
         </section>
 
         <section class="pmk-panel pmk-requestMusic" id="pmkRequestMusicPanel" hidden>
-            <h2>Request Music</h2>
-            <p class="pmk-subtitle">
-                Requesting an artist monitors and searches for their whole discography. If you
-                just want one album or single - which is how most indexers actually have music
-                anyway - search for it by title below instead.
-            </p>
+            <div class="pmk-panelHeaderRow">
+                <h2>Request Music</h2>
+                <button type="button" id="pmkRequestMusicToggle" class="pmk-collapseToggle" title="Collapse">&#9662;</button>
+            </div>
+            <div id="pmkRequestMusicBody">
+                <p class="pmk-subtitle">
+                    Requesting an artist monitors and searches for their whole discography. If you
+                    just want one album or single - which is how most indexers actually have music
+                    anyway - search for it by title below instead.
+                </p>
 
-            <h3 class="pmk-requestSubheading">Request an Album</h3>
-            <p class="pmk-subtitle">Search by album or single title to request just that release, not the whole artist.</p>
-            <div class="pmk-searchRow">
-                <input id="pmkAlbumRequestSearchInput" type="text" placeholder="Search for an album or single to request&hellip;" class="pmk-searchInput" />
-            </div>
-            <div class="pmk-requestResults" id="pmkAlbumRequestResults">
-                <p class="pmk-empty">Search above for an album.</p>
-            </div>
+                <h3 class="pmk-requestSubheading">Request an Album</h3>
+                <p class="pmk-subtitle">Search by album or single title to request just that release, not the whole artist.</p>
+                <div class="pmk-searchRow">
+                    <input id="pmkAlbumRequestSearchInput" type="text" placeholder="Search for an album or single to request&hellip;" class="pmk-searchInput" />
+                </div>
+                <div class="pmk-requestResults" id="pmkAlbumRequestResults">
+                    <p class="pmk-empty">Search above for an album.</p>
+                </div>
 
-            <h3 class="pmk-requestSubheading">Request an Artist</h3>
-            <p class="pmk-subtitle">Search for an artist to browse and request individual albums/singles from their catalog, or request their entire discography at once.</p>
-            <div class="pmk-searchRow">
-                <input id="pmkRequestSearchInput" type="text" placeholder="Search for an artist to request&hellip;" class="pmk-searchInput" />
-            </div>
-            <div class="pmk-requestResults" id="pmkRequestResults">
-                <p class="pmk-empty">Search above for an artist.</p>
-            </div>
+                <h3 class="pmk-requestSubheading">Request an Artist</h3>
+                <p class="pmk-subtitle">Search for an artist to browse and request individual albums/singles from their catalog, or request their entire discography at once.</p>
+                <div class="pmk-searchRow">
+                    <input id="pmkRequestSearchInput" type="text" placeholder="Search for an artist to request&hellip;" class="pmk-searchInput" />
+                </div>
+                <div class="pmk-requestResults" id="pmkRequestResults">
+                    <p class="pmk-empty">Search above for an artist.</p>
+                </div>
 
-            <h3 class="pmk-requestSubheading">Can't find it? Submit a custom request</h3>
-            <p class="pmk-subtitle">Paste a link (Spotify, YouTube, Bandcamp, wherever) and an admin will look into it.</p>
-            <div class="pmk-customRequestForm">
-                <input id="pmkCustomRequestLink" type="text" placeholder="Link&hellip;" class="pmk-searchInput" />
-                <textarea id="pmkCustomRequestNote" placeholder="Optional note&hellip;"></textarea>
-                <button type="button" id="pmkCustomRequestSubmit" class="pmk-requestAction pmk-customRequestSubmit">Submit Request</button>
-                <div class="pmk-status" id="pmkCustomRequestStatus"></div>
+                <h3 class="pmk-requestSubheading">Can't find it? Submit a custom request</h3>
+                <p class="pmk-subtitle">Paste a link (Spotify, YouTube, Bandcamp, wherever) and an admin will look into it.</p>
+                <div class="pmk-customRequestForm">
+                    <input id="pmkCustomRequestLink" type="text" placeholder="Link&hellip;" class="pmk-searchInput" />
+                    <textarea id="pmkCustomRequestNote" placeholder="Optional note&hellip;"></textarea>
+                    <button type="button" id="pmkCustomRequestSubmit" class="pmk-requestAction pmk-customRequestSubmit">Submit Request</button>
+                    <div class="pmk-status" id="pmkCustomRequestStatus"></div>
+                </div>
             </div>
         </section>
     </div>
@@ -2424,11 +2463,42 @@
             }).catch(function () { /* feature not available - leave hidden */ });
         }
 
+        // "Recommended For You" and "Request Music" default collapsed when the app is loaded
+        // inside an iframe (e.g. the floating mini-panel documented in the README) - there's not
+        // much room there, and Search / Your Playlist are the panels that actually matter for
+        // building a playlist, so those stay expanded. In a normal full-tab visit nothing changes.
+        function makeCollapsible(bodyId, toggleId, collapsedByDefault) {
+            var body = document.getElementById(bodyId);
+            var toggle = document.getElementById(toggleId);
+            if (!body || !toggle) {
+                return;
+            }
+
+            function setCollapsed(collapsed) {
+                body.hidden = collapsed;
+                toggle.textContent = collapsed ? '▸' : '▾';
+                toggle.title = collapsed ? 'Expand' : 'Collapse';
+            }
+
+            toggle.addEventListener('click', function () {
+                setCollapsed(!body.hidden);
+            });
+
+            setCollapsed(collapsedByDefault);
+        }
+
+        function initCollapsiblePanels() {
+            var embedded = window.self !== window.top;
+            makeCollapsible('pmkRecommendBody', 'pmkRecommendToggle', embedded);
+            makeCollapsible('pmkRequestMusicBody', 'pmkRequestMusicToggle', embedded);
+        }
+
         function initBuilder() {
             renderDraft();
             loadFacets();
             loadPlaylistPicker();
             refreshRecommendations();
+            initCollapsiblePanels();
 
             var searchInput = document.getElementById('pmkSearchInput');
             searchInput.addEventListener('input', function () {

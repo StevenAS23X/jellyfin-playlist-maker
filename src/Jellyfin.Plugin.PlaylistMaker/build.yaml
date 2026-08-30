@@ -9,8 +9,15 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.9.0"
+version: "1.1.10.0"
 changelog: |
+  ## v1.1.10.0
+  - "Recommended For You" and "Request Music" now default to collapsed (with a chevron toggle to
+    expand) when the app is loaded inside an iframe, like the README's floating mini-panel - there
+    isn't much room there, so Search and Your Playlist (the panels that actually matter for
+    building a playlist) stay front and center instead of getting pushed down. A normal full-tab
+    visit is unaffected; both panels still default expanded there.
+
   ## v1.1.9.0
   - Request Music search boxes (artist and album) now show a "Searching…" indicator the moment a
     search starts, instead of leaving stale results/empty-state text visible with no feedback
