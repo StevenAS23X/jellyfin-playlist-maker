@@ -177,10 +177,11 @@ either the panel, the popped-out window, or the tab stays open — it reappears
 automatically the moment you close whichever one you had open, so it's not competing for
 space with the app while you're actually using it.
 
-The button hides itself while a video is playing (Jellyfin's SPA can leave a library
-tab's DOM mounted underneath the video overlay, so it checks for an active `<video>`
-element rather than trusting tab detection alone) — it's only ever shown while you're
-actually browsing. Right-clicking the button toggles it off: it shrinks to a small,
+The button hides itself any time a video player is open, paused or not (Jellyfin's SPA
+can leave a library tab's DOM mounted underneath the video overlay, so it checks for the
+presence of a `<video>` element rather than trusting tab detection alone) — it's only
+ever shown while you're actually on a music library tab. Right-clicking the button
+toggles it off: it shrinks to a small,
 translucent icon-only handle in the same corner (rather than disappearing entirely)
 so there's still something to click to bring it back to full size, and the preference
 is remembered per-browser via `localStorage`.
@@ -439,17 +440,14 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     }
 
     // Jellyfin's video player mounts a plain <video> element for playback (audio-only
-    // playback uses <audio> instead), so this is a reliable, skin-agnostic signal that
-    // playback is active - unlike tab-label detection, which can still see a music
-    // library tab's own DOM sitting underneath the video overlay.
-    function isVideoPlaying() {
-        const videos = document.querySelectorAll("video");
-        for (const video of videos) {
-            if (!video.paused && !video.ended && video.readyState > 2) {
-                return true;
-            }
-        }
-        return false;
+    // playback uses <audio> instead), so its mere presence - paused or not - is a reliable,
+    // skin-agnostic signal that you're on a video page rather than actually browsing a music
+    // library, unlike tab-label detection alone, which can still see a music library tab's own
+    // DOM sitting underneath the video overlay. Deliberately not limited to "actively playing":
+    // pausing the video doesn't put you back on the music library tab, so the button should stay
+    // hidden while the video player is open at all.
+    function isVideoOpen() {
+        return document.querySelector("video") !== null;
     }
 
     // A remote-driven 10-foot layout is an awkward fit for a mouse-dragged floating
@@ -757,7 +755,7 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     }
 
     function update() {
-        const shouldShow = isOnMusicLibraryTab() && !isVideoPlaying() && !isTvClient() && !isPlaylistMakerOpenElsewhere();
+        const shouldShow = isOnMusicLibraryTab() && !isVideoOpen() && !isTvClient() && !isPlaylistMakerOpenElsewhere();
         let button = document.getElementById(BUTTON_ID);
 
         if (!shouldShow) {
@@ -786,14 +784,6 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     window.addEventListener("hashchange", update);
     window.addEventListener("popstate", update);
     document.addEventListener("DOMContentLoaded", update);
-
-    // play/pause/ended are property changes on the <video> element, not DOM mutations,
-    // so the MutationObserver below won't see them - listen directly (capture: true,
-    // since these events don't bubble) so the button hides/reappears the instant
-    // playback actually starts or stops instead of waiting on unrelated DOM churn.
-    document.addEventListener("play", update, true);
-    document.addEventListener("pause", update, true);
-    document.addEventListener("ended", update, true);
 
     // Jellyfin's web client is a single-page app - it swaps page content in place
     // without a full reload, so hashchange/popstate alone miss most in-app
