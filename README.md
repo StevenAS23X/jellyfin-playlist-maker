@@ -161,14 +161,21 @@ a music library's tabs (Albums, Suggestions, Album artists, Artists, Playlists, 
 Genres — detected by tab label, so it follows you across whichever one is active
 instead of only appearing on Playlists). Clicking it opens the app in a small
 draggable, resizable panel docked over the page — a mini browser rather than a second
-tab — with its own drag handle to move it, a grip in the bottom-right corner to resize
-it, and buttons in the header to pop it out to a real, separate browser window (which
-gets you genuine OS-level window behavior — dragging to a screen edge to snap, moving
-between monitors, resizing via the window's own chrome — since at that point it's a
-real window, not something this script has to fake), open it in a normal tab, or close
-it. The resize/drag handles specifically avoid the classic "dragging over an iframe
-eats your mouse events" bug (they briefly disable pointer events on the iframe while a
-drag or resize is in progress).
+tab — with its own drag handle to move it, resize handles along every edge and corner
+(not just the bottom-right grip) to resize it from whichever side is convenient, and
+buttons in the header to pop it out to a real, separate browser window (which gets you
+genuine OS-level window behavior — dragging to a screen edge to snap, moving between
+monitors, resizing via the window's own chrome — since at that point it's a real
+window, not something this script has to fake), open it in a normal tab, or close it.
+The resize/drag handles specifically avoid the classic "dragging over an iframe eats
+your mouse events" bug (they briefly disable pointer events on the iframe while a drag
+or resize is in progress).
+
+Popping the app out to a real window or a new tab always closes the embedded panel (the
+two used to both stay open at once), and the floating button itself hides for as long as
+either the panel, the popped-out window, or the tab stays open — it reappears
+automatically the moment you close whichever one you had open, so it's not competing for
+space with the app while you're actually using it.
 
 The button hides itself while a video is playing (Jellyfin's SPA can leave a library
 tab's DOM mounted underneath the video overlay, so it checks for an active `<video>`
@@ -270,10 +277,10 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
 
 #jfPlaylistMakerResizeHandle {
     position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 18px;
-    height: 18px;
+    right: 0;
+    bottom: 0;
+    width: 14px;
+    height: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -281,12 +288,79 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     line-height: 1;
     color: rgba(255, 255, 255, 0.4);
     cursor: nwse-resize;
-    z-index: 2;
+    z-index: 3;
     user-select: none;
 }
 
 #jfPlaylistMakerResizeHandle:hover {
     color: rgba(255, 255, 255, 0.85);
+}
+
+/* Invisible resize hit-zones along the other three edges and three corners (bottom-right is
+   #jfPlaylistMakerResizeHandle above, with its visible "⤡" grip) so the panel can be resized
+   from any side, not just that one corner. Positioned flush with the inside of the panel's own
+   border rather than overhanging it, since the panel clips overflowing content
+   (see #jfPlaylistMakerPanel's overflow: hidden) and anything hanging past the edge would just
+   get cut off and become unclickable. */
+.jfPmResizeEdge {
+    position: absolute;
+    z-index: 3;
+}
+
+.jfPmResizeEdge-n {
+    top: 0;
+    left: 14px;
+    right: 14px;
+    height: 6px;
+    cursor: ns-resize;
+}
+
+.jfPmResizeEdge-s {
+    bottom: 0;
+    left: 14px;
+    right: 14px;
+    height: 6px;
+    cursor: ns-resize;
+}
+
+.jfPmResizeEdge-e {
+    top: 14px;
+    bottom: 14px;
+    right: 0;
+    width: 6px;
+    cursor: ew-resize;
+}
+
+.jfPmResizeEdge-w {
+    top: 14px;
+    bottom: 14px;
+    left: 0;
+    width: 6px;
+    cursor: ew-resize;
+}
+
+.jfPmResizeEdge-ne {
+    top: 0;
+    right: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nesw-resize;
+}
+
+.jfPmResizeEdge-nw {
+    top: 0;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+}
+
+.jfPmResizeEdge-sw {
+    bottom: 0;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nesw-resize;
 }
 
 #jfPlaylistMakerPanel[hidden] {
@@ -492,27 +566,26 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         });
     }
 
-    function makeResizable(panel, handle, iframe) {
+    // Generalizes a single-corner resize handle to work from any edge or corner: dir is a string
+    // like "se", "n", "w" etc. controlling which side(s) of the panel actually move when the
+    // mouse does. Dragging the left edge, for instance, needs the right edge to stay put and the
+    // panel to grow leftward - the opposite of the bottom-right-only behavior this used to be
+    // limited to.
+    function makeEdgeResizable(panel, handle, iframe, dir) {
         let resizing = false;
         let startX = 0;
         let startY = 0;
-        let startWidth = 0;
-        let startHeight = 0;
+        let startRect = null;
 
         handle.addEventListener("mousedown", (e) => {
             resizing = true;
-            const rect = panel.getBoundingClientRect();
             startX = e.clientX;
             startY = e.clientY;
-            startWidth = rect.width;
-            startHeight = rect.height;
-            // The panel starts anchored by right/bottom (see #jfPlaylistMakerPanel), so growing
-            // its width/height alone would expand it up and to the left - away from the corner
-            // the user is actually dragging. Pin its current position as left/top first (a no-op
-            // visually) so the top-left corner stays put and the bottom-right corner follows the
-            // mouse, the way a resize handle is expected to behave.
-            panel.style.left = rect.left + "px";
-            panel.style.top = rect.top + "px";
+            startRect = panel.getBoundingClientRect();
+            // Pin the panel's current position as left/top (a no-op visually) so growing or
+            // shrinking from one edge doesn't drag the opposite, un-grabbed edge along with it.
+            panel.style.left = startRect.left + "px";
+            panel.style.top = startRect.top + "px";
             panel.style.right = "auto";
             panel.style.bottom = "auto";
             iframe.style.pointerEvents = "none";
@@ -524,8 +597,25 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
             if (!resizing) {
                 return;
             }
-            panel.style.width = Math.max(280, startWidth + (e.clientX - startX)) + "px";
-            panel.style.height = Math.max(300, startHeight + (e.clientY - startY)) + "px";
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            if (dir.includes("e")) {
+                panel.style.width = Math.max(280, startRect.width + dx) + "px";
+            }
+            if (dir.includes("w")) {
+                const width = Math.max(280, startRect.width - dx);
+                panel.style.width = width + "px";
+                panel.style.left = (startRect.left + startRect.width - width) + "px";
+            }
+            if (dir.includes("s")) {
+                panel.style.height = Math.max(300, startRect.height + dy) + "px";
+            }
+            if (dir.includes("n")) {
+                const height = Math.max(300, startRect.height - dy);
+                panel.style.height = height + "px";
+                panel.style.top = (startRect.top + startRect.height - height) + "px";
+            }
         });
 
         window.addEventListener("mouseup", () => {
@@ -536,16 +626,68 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         });
     }
 
+    // Adds hit-zones along the other three edges and three corners (the fourth corner, bottom-
+    // right, is cornerHandle - the visible "⤡" grip that already existed) so the panel can be
+    // resized by grabbing any side, not just that one corner.
+    function makeFullyResizable(panel, cornerHandle, iframe) {
+        ["n", "s", "e", "w", "ne", "nw", "sw"].forEach((dir) => {
+            const edge = document.createElement("div");
+            edge.className = `jfPmResizeEdge jfPmResizeEdge-${dir}`;
+            panel.appendChild(edge);
+            makeEdgeResizable(panel, edge, iframe, dir);
+        });
+        makeEdgeResizable(panel, cornerHandle, iframe, "se");
+    }
+
+    // Windows/tabs opened from the panel (real popout or "open in a new tab"), tracked so the
+    // floating button can stay hidden until they're actually closed instead of reappearing
+    // immediately underneath them.
+    let openWindowRefs = [];
+    let openWatchTimer = null;
+
+    function isPlaylistMakerOpenElsewhere() {
+        return (panel && !panel.hidden) || openWindowRefs.some((w) => w && !w.closed);
+    }
+
+    // window.closed only changes on its own, with no event to react to - poll it while anything
+    // is open, and stop as soon as everything's closed again instead of polling forever.
+    function watchOpenWindows() {
+        if (openWatchTimer) {
+            return;
+        }
+        openWatchTimer = window.setInterval(() => {
+            openWindowRefs = openWindowRefs.filter((w) => w && !w.closed);
+            if (openWindowRefs.length === 0) {
+                window.clearInterval(openWatchTimer);
+                openWatchTimer = null;
+            }
+            update();
+        }, 700);
+    }
+
+    // Opens PLAYLIST_MAKER_URL as a real window or a new tab and closes the embedded panel, so
+    // the two never end up open at once (the panel used to stay open behind whichever one you
+    // picked). Deliberately doesn't pass "noopener"/"noreferrer" - either one on its own makes
+    // window.open() return null, and without a reference back there'd be no way to notice the
+    // window/tab closing and bring the floating button back. That's an acceptable trade-off here
+    // since it's our own trusted PLAYLIST_MAKER_URL, not an arbitrary link.
+    function openExternally(name, features) {
+        const win = window.open(PLAYLIST_MAKER_URL, name, features);
+        if (win) {
+            openWindowRefs.push(win);
+            watchOpenWindows();
+        }
+        if (panel) {
+            panel.hidden = true;
+        }
+        update();
+    }
+
     function popOutToWindow(panel) {
         const rect = panel.getBoundingClientRect();
         const width = Math.max(360, Math.round(rect.width));
         const height = Math.max(420, Math.round(rect.height));
-        window.open(
-            PLAYLIST_MAKER_URL,
-            "playlistMakerPopout",
-            `popup=yes,width=${width},height=${height},resizable=yes,scrollbars=yes`
-        );
-        panel.hidden = true;
+        openExternally("playlistMakerPopout", `popup=yes,width=${width},height=${height},resizable=yes,scrollbars=yes`);
     }
 
     let panel = null;
@@ -576,13 +718,16 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         openTab.type = "button";
         openTab.title = "Open in a new tab";
         openTab.textContent = "⤢";
-        openTab.addEventListener("click", () => window.open(PLAYLIST_MAKER_URL, "_blank", "noopener,noreferrer"));
+        openTab.addEventListener("click", () => openExternally("_blank", ""));
 
         const close = document.createElement("button");
         close.type = "button";
         close.title = "Close";
         close.textContent = "✕";
-        close.addEventListener("click", () => { panel.hidden = true; });
+        close.addEventListener("click", () => {
+            panel.hidden = true;
+            update();
+        });
 
         actions.append(popOut, openTab, close);
         header.appendChild(actions);
@@ -600,7 +745,7 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
         panel.appendChild(resizeHandle);
 
         makeDraggable(panel, header, iframe);
-        makeResizable(panel, resizeHandle, iframe);
+        makeFullyResizable(panel, resizeHandle, iframe);
         document.body.appendChild(panel);
         return panel;
     }
@@ -608,10 +753,11 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     function togglePanel() {
         const p = ensurePanel();
         p.hidden = !p.hidden;
+        update();
     }
 
     function update() {
-        const shouldShow = isOnMusicLibraryTab() && !isVideoPlaying() && !isTvClient();
+        const shouldShow = isOnMusicLibraryTab() && !isVideoPlaying() && !isTvClient() && !isPlaylistMakerOpenElsewhere();
         let button = document.getElementById(BUTTON_ID);
 
         if (!shouldShow) {

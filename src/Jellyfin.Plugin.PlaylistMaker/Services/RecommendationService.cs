@@ -8,6 +8,7 @@ using Jellyfin.Plugin.PlaylistMaker.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Entities;
 
 namespace Jellyfin.Plugin.PlaylistMaker.Services;
 
@@ -83,6 +84,34 @@ public class RecommendationService : IRecommendationService
             albumTrackMatches = _libraryManager.GetItemList(albumTrackQuery).OfType<Audio>();
         }
 
+        // SearchTerm against Audio items also doesn't match a track's Artists/AlbumArtists tags -
+        // resolve matching artist entities the same way albums are matched above, then pull their
+        // tracks directly via ArtistIds (which covers both roles), instead of the query silently
+        // finding nothing (or only a few coincidental title/album hits) when someone searches for
+        // an artist by name.
+        var artistQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicArtist },
+            Recursive = true,
+            SearchTerm = query,
+            Limit = 5
+        };
+        var artistIds = _libraryManager.GetItemList(artistQuery).Select(a => a.Id).ToArray();
+
+        IEnumerable<Audio> artistTrackMatches = Array.Empty<Audio>();
+        if (artistIds.Length > 0)
+        {
+            var artistTrackQuery = new InternalItemsQuery(user)
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Audio },
+                Recursive = true,
+                IsVirtualItem = false,
+                ArtistIds = artistIds,
+                Limit = limit * 3
+            };
+            artistTrackMatches = _libraryManager.GetItemList(artistTrackQuery).OfType<Audio>();
+        }
+
         // Neither of the above matches by genre - someone typing "rock" expects rock tracks back,
         // the same way picking the "Rock" chip would, not just tracks/albums literally named "rock".
         // Mirrors the album lookup above (search the indexed genre entities by name, then filter
@@ -112,7 +141,7 @@ public class RecommendationService : IRecommendationService
             genreTrackMatches = _libraryManager.GetItemList(genreTrackQuery).OfType<Audio>();
         }
 
-        return DedupeBySong(trackMatches.Concat(albumTrackMatches).Concat(genreTrackMatches))
+        return DedupeBySong(trackMatches.Concat(albumTrackMatches).Concat(artistTrackMatches).Concat(genreTrackMatches))
             .Take(limit)
             .Select(t => TrackDtoMapper.ToDto(t))
             .ToList();
@@ -186,6 +215,75 @@ public class RecommendationService : IRecommendationService
         return GetAllTracks(user)
             .Select(t => (Artist: TrackDtoMapper.GetArtistNames(t).FirstOrDefault() ?? string.Empty, Title: t.AlbumEntity?.Name ?? string.Empty))
             .Where(x => x.Artist.Length > 0 && x.Title.Length > 0)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Releases with this many owned tracks or fewer are grouped as a single/EP rather than a
+    /// full album in the artist browser - there's no formal "single" flag on local library
+    /// metadata to key off of, so track count is a practical stand-in.
+    /// </summary>
+    private const int SingleTrackCountThreshold = 3;
+
+    /// <inheritdoc />
+    public IReadOnlyList<AlbumDto> GetArtistAlbums(Guid userId, string artist)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null || string.IsNullOrWhiteSpace(artist))
+        {
+            return Array.Empty<AlbumDto>();
+        }
+
+        // The caller already has an exact artist name in hand (from a track's own Artists/
+        // AlbumArtists tag, e.g. clicking an artist link on a search result), so match exactly
+        // rather than re-running it through SearchTerm/fuzzy matching, which could pick up a
+        // different, similarly-named artist instead.
+        return GetAllTracks(user)
+            .Where(t => TrackDtoMapper.GetArtistNames(t).Any(a => string.Equals(a, artist, StringComparison.OrdinalIgnoreCase)))
+            .Where(t => t.AlbumEntity is not null)
+            .GroupBy(t => t.AlbumEntity!.Id)
+            .Select(g =>
+            {
+                var album = g.First().AlbumEntity!;
+                var trackCount = g.Count();
+                return new AlbumDto
+                {
+                    Id = album.Id,
+                    Name = album.Name,
+                    ProductionYear = album.ProductionYear,
+                    TrackCount = trackCount,
+                    IsSingle = trackCount <= SingleTrackCountThreshold,
+                    ImageItemId = album.HasImage(ImageType.Primary, 0) ? album.Id : (Guid?)null
+                };
+            })
+            .OrderByDescending(a => a.ProductionYear ?? 0)
+            .ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<TrackDto> GetAlbumTracks(Guid userId, Guid albumId)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null)
+        {
+            return Array.Empty<TrackDto>();
+        }
+
+        var query = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Audio },
+            Recursive = true,
+            IsVirtualItem = false,
+            AlbumIds = new[] { albumId }
+        };
+
+        return _libraryManager.GetItemList(query)
+            .OfType<Audio>()
+            .OrderBy(t => t.ParentIndexNumber ?? 0)
+            .ThenBy(t => t.IndexNumber ?? int.MaxValue)
+            .ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(t => TrackDtoMapper.ToDto(t))
             .ToList();
     }
 

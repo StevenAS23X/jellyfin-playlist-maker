@@ -153,6 +153,34 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Gets an artist's albums/singles that are present in the user's library, for the "click an
+    /// artist to browse their discography" drill-down.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="artist">The artist name.</param>
+    /// <returns>The artist's albums, newest first.</returns>
+    [HttpGet("ArtistAlbums")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<AlbumDto>> GetArtistAlbums([FromQuery] Guid userId, [FromQuery] string artist)
+    {
+        return Ok(_recommendationService.GetArtistAlbums(userId, artist));
+    }
+
+    /// <summary>
+    /// Gets an album's tracks that are present in the user's library, in track order, for the
+    /// artist drill-down's album view.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="albumId">The album item id.</param>
+    /// <returns>The album's tracks.</returns>
+    [HttpGet("AlbumTracks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<TrackDto>> GetAlbumTracks([FromQuery] Guid userId, [FromQuery] Guid albumId)
+    {
+        return Ok(_recommendationService.GetAlbumTracks(userId, albumId));
+    }
+
+    /// <summary>
     /// Gets tracks recommended for the current playlist draft, based on the genres/artists
     /// of the tracks already added (or explicitly picked genres/artists for a cold start).
     /// </summary>

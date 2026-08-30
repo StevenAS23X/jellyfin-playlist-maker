@@ -205,6 +205,10 @@
             margin-top: 0;
         }
 
+        .pmk-guide strong {
+            color: rgba(0, 164, 220, 0.9);
+        }
+
         .pmk-columns {
             display: grid;
             grid-template-columns: 1.1fr 1fr 1.1fr;
@@ -476,6 +480,56 @@
             font-size: 0.78em;
             color: rgba(0, 164, 220, 0.9);
             margin-top: 0.15em;
+        }
+
+        .pmk-artistLink {
+            border: 0;
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .pmk-artistLink:hover {
+            color: rgba(0, 164, 220, 0.9);
+            text-decoration: underline;
+        }
+
+        .pmk-browseCrumbs {
+            font-size: 0.85em;
+            color: #b3b3b3;
+            margin-bottom: 0.5em;
+        }
+
+        .pmk-crumbLink {
+            border: 0;
+            background: transparent;
+            color: rgba(0, 164, 220, 0.9);
+            padding: 0;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .pmk-crumbLink:hover {
+            text-decoration: underline;
+        }
+
+        .pmk-crumbCurrent {
+            color: #e5e5e5;
+        }
+
+        .pmk-browseSectionHeading {
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #b3b3b3;
+            padding: 0.6em 0.3em 0.3em;
+        }
+
+        .pmk-albumRow {
+            cursor: pointer;
         }
 
         .pmk-trackAction {
@@ -1058,7 +1112,11 @@
     </div>
 
     <div class="pmk-app">
-        <p class="pmk-subtitle">Search your library, pick a starting genre or artist, and build a playlist with live recommendations &mdash; just like Spotify or Apple Music.</p>
+        <p class="pmk-subtitle pmk-guide">
+            <strong>1.</strong> Search or pick a genre/artist below to start &mdash;
+            <strong>2.</strong> add tracks to build your playlist, using Recommended For You for more like what you've picked &mdash;
+            <strong>3.</strong> name it and hit Save. Click any artist name to browse their full discography by album.
+        </p>
 
         <div class="pmk-columns">
 
@@ -1069,6 +1127,8 @@
                 <div class="pmk-searchRow">
                     <input id="pmkSearchInput" type="text" placeholder="Search tracks, artists, albums&hellip;" class="pmk-searchInput" />
                 </div>
+
+                <div class="pmk-browseCrumbs" id="pmkSearchCrumbs" hidden></div>
 
                 <div class="pmk-results" id="pmkSearchResults">
                     <p class="pmk-empty">Search above, or pick a genre / artist to get started.</p>
@@ -1243,7 +1303,8 @@
             playingTrack: null,
             playlistOptions: [],
             selectedPlaylistId: '',
-            loadedPlaylistName: null
+            loadedPlaylistName: null,
+            artistBrowse: null
         };
 
         var audioEl = new Audio();
@@ -1546,6 +1607,50 @@
             return art;
         }
 
+        // Builds the artist/album/duration meta line, with each artist name rendered as its own
+        // clickable link (rather than trackMetaText's plain string) that opens the artist drill-down
+        // - skipped for draft/remove rows, where navigating away mid-edit would be more distracting
+        // than useful.
+        function buildTrackMeta(track, artistsClickable) {
+            var meta = document.createElement('div');
+            meta.className = 'pmk-trackMeta';
+
+            var artists = (track.Artists || []).filter(Boolean);
+            artists.forEach(function (artist, i) {
+                if (i > 0) {
+                    meta.appendChild(document.createTextNode(', '));
+                }
+                if (artistsClickable) {
+                    var link = document.createElement('button');
+                    link.type = 'button';
+                    link.className = 'pmk-artistLink';
+                    link.textContent = artist;
+                    link.title = 'Browse ' + artist + '’s albums';
+                    link.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        openArtistBrowse(artist);
+                    });
+                    meta.appendChild(link);
+                } else {
+                    meta.appendChild(document.createTextNode(artist));
+                }
+            });
+
+            var rest = [];
+            if (track.Album) {
+                rest.push(track.Album);
+            }
+            var duration = formatDuration(track.RunTimeTicks);
+            if (duration) {
+                rest.push(duration);
+            }
+            if (rest.length) {
+                meta.appendChild(document.createTextNode((artists.length ? ' • ' : '') + rest.join(' • ')));
+            }
+
+            return meta;
+        }
+
         function buildTrackRow(track, options) {
             var row = document.createElement('div');
             row.className = 'pmk-trackRow';
@@ -1560,10 +1665,7 @@
             name.textContent = track.Name;
             info.appendChild(name);
 
-            var meta = document.createElement('div');
-            meta.className = 'pmk-trackMeta';
-            meta.textContent = trackMetaText(track);
-            info.appendChild(meta);
+            info.appendChild(buildTrackMeta(track, !options.remove));
 
             if (track.MatchReason) {
                 var reason = document.createElement('div');
@@ -1750,7 +1852,221 @@
             statusEl.className = 'pmk-status ' + (isError ? 'pmk-statusError' : 'pmk-statusOk');
         }
 
+        // Renders the breadcrumb trail above Search results (e.g. "Search > Radiohead > OK
+        // Computer"). Pass null/empty to hide it - shown only while the artist drill-down below
+        // is active, since normal search/browse results don't need one.
+        function setSearchCrumbs(segments) {
+            var el = document.getElementById('pmkSearchCrumbs');
+            clearChildren(el);
+            if (!segments || segments.length === 0) {
+                el.hidden = true;
+                return;
+            }
+            el.hidden = false;
+            segments.forEach(function (segment, i) {
+                if (i > 0) {
+                    el.appendChild(document.createTextNode(' › '));
+                }
+                if (segment.onClick) {
+                    var link = document.createElement('button');
+                    link.type = 'button';
+                    link.className = 'pmk-crumbLink';
+                    link.textContent = segment.label;
+                    link.addEventListener('click', segment.onClick);
+                    el.appendChild(link);
+                } else {
+                    var span = document.createElement('span');
+                    span.className = 'pmk-crumbCurrent';
+                    span.textContent = segment.label;
+                    el.appendChild(span);
+                }
+            });
+        }
+
+        function closeArtistBrowse() {
+            state.artistBrowse = null;
+            setSearchCrumbs(null);
+            refreshSearch();
+        }
+
+        function buildAlbumRow(album, onOpen) {
+            var row = document.createElement('div');
+            row.className = 'pmk-trackRow pmk-albumRow';
+
+            var art = document.createElement('div');
+            art.className = 'pmk-trackArt';
+            var url = imageUrl(album.ImageItemId);
+            if (url) {
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = '';
+                img.loading = 'lazy';
+                art.appendChild(img);
+            } else {
+                var note = document.createElement('span');
+                note.textContent = '♪';
+                art.appendChild(note);
+            }
+            row.appendChild(art);
+
+            var info = document.createElement('div');
+            info.className = 'pmk-trackInfo';
+            var name = document.createElement('div');
+            name.className = 'pmk-trackName';
+            name.textContent = album.Name;
+            info.appendChild(name);
+
+            var meta = document.createElement('div');
+            meta.className = 'pmk-trackMeta';
+            var metaParts = [];
+            if (album.ProductionYear) {
+                metaParts.push(String(album.ProductionYear));
+            }
+            metaParts.push(album.TrackCount + (album.TrackCount === 1 ? ' track' : ' tracks'));
+            meta.textContent = metaParts.join(' • ');
+            info.appendChild(meta);
+            row.appendChild(info);
+
+            var action = document.createElement('button');
+            action.type = 'button';
+            action.className = 'pmk-trackAction';
+            action.textContent = 'Open';
+            action.addEventListener('click', function (e) {
+                e.stopPropagation();
+                onOpen();
+            });
+            row.appendChild(action);
+
+            row.addEventListener('click', onOpen);
+
+            return row;
+        }
+
+        function renderArtistAlbums() {
+            var resultsEl = document.getElementById('pmkSearchResults');
+            var browse = state.artistBrowse;
+            clearChildren(resultsEl);
+
+            setSearchCrumbs([
+                { label: 'Search', onClick: closeArtistBrowse },
+                { label: browse.artist }
+            ]);
+
+            if (!browse.albums) {
+                var loading = document.createElement('p');
+                loading.className = 'pmk-empty';
+                loading.textContent = 'Loading ' + browse.artist + '’s albums…';
+                resultsEl.appendChild(loading);
+                return;
+            }
+
+            if (browse.albums.length === 0) {
+                var empty = document.createElement('p');
+                empty.className = 'pmk-empty';
+                empty.textContent = 'No albums found for ' + browse.artist + ' in your library.';
+                resultsEl.appendChild(empty);
+                return;
+            }
+
+            var albums = browse.albums.filter(function (a) { return !a.IsSingle; });
+            var singles = browse.albums.filter(function (a) { return a.IsSingle; });
+
+            function appendGroup(title, items) {
+                if (items.length === 0) {
+                    return;
+                }
+                var heading = document.createElement('div');
+                heading.className = 'pmk-browseSectionHeading';
+                heading.textContent = title;
+                resultsEl.appendChild(heading);
+                items.forEach(function (album) {
+                    resultsEl.appendChild(buildAlbumRow(album, function () { openAlbumBrowse(album); }));
+                });
+            }
+
+            appendGroup('Albums', albums);
+            appendGroup('Singles', singles);
+        }
+
+        function openArtistBrowse(artist) {
+            state.artistBrowse = { artist: artist, view: 'albums', albums: null, album: null, tracks: null };
+            renderArtistAlbums();
+
+            apiGet('/PlaylistMaker/ArtistAlbums', { userId: state.userId, artist: artist })
+                .then(function (albums) {
+                    if (!state.artistBrowse || state.artistBrowse.artist !== artist || state.artistBrowse.view !== 'albums') {
+                        return;
+                    }
+                    state.artistBrowse.albums = albums;
+                    renderArtistAlbums();
+                })
+                .catch(function () {
+                    if (!state.artistBrowse || state.artistBrowse.artist !== artist) {
+                        return;
+                    }
+                    state.artistBrowse.albums = [];
+                    renderArtistAlbums();
+                });
+        }
+
+        function renderAlbumTracks() {
+            var resultsEl = document.getElementById('pmkSearchResults');
+            var browse = state.artistBrowse;
+            var album = browse.album;
+
+            setSearchCrumbs([
+                { label: 'Search', onClick: closeArtistBrowse },
+                { label: browse.artist, onClick: function () { openArtistBrowse(browse.artist); } },
+                { label: album.Name }
+            ]);
+
+            if (!browse.tracks) {
+                clearChildren(resultsEl);
+                var loading = document.createElement('p');
+                loading.className = 'pmk-empty';
+                loading.textContent = 'Loading tracks…';
+                resultsEl.appendChild(loading);
+                return;
+            }
+
+            renderList(resultsEl, browse.tracks, {
+                remove: false,
+                emptyText: 'No tracks found for this album.',
+                onClick: addToDraft
+            });
+        }
+
+        function openAlbumBrowse(album) {
+            state.artistBrowse.view = 'albumTracks';
+            state.artistBrowse.album = album;
+            state.artistBrowse.tracks = null;
+            renderAlbumTracks();
+
+            apiGet('/PlaylistMaker/AlbumTracks', { userId: state.userId, albumId: album.Id })
+                .then(function (tracks) {
+                    if (!state.artistBrowse || state.artistBrowse.album !== album) {
+                        return;
+                    }
+                    state.artistBrowse.tracks = tracks;
+                    renderAlbumTracks();
+                })
+                .catch(function () {
+                    if (!state.artistBrowse || state.artistBrowse.album !== album) {
+                        return;
+                    }
+                    state.artistBrowse.tracks = [];
+                    renderAlbumTracks();
+                });
+        }
+
         function refreshSearch() {
+            // Any normal search/browse refresh (typing a query, picking a chip) exits the artist
+            // drill-down view below rather than leaving its stale breadcrumb trail on screen.
+            if (state.artistBrowse) {
+                state.artistBrowse = null;
+                setSearchCrumbs(null);
+            }
+
             var resultsEl = document.getElementById('pmkSearchResults');
             var query = document.getElementById('pmkSearchInput').value.trim();
 

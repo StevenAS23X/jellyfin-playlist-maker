@@ -52,6 +52,25 @@ public interface IRecommendationService
     IReadOnlyList<(string Artist, string Title)> GetOwnedAlbums(Guid userId);
 
     /// <summary>
+    /// Gets the albums (and singles/EPs) by the given artist that are present in the user's
+    /// library, for the "click an artist to browse their discography" drill-down.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="artist">The artist name, matched exactly (case-insensitive) against a track's
+    /// own artist/album-artist tags.</param>
+    /// <returns>The artist's albums, newest first.</returns>
+    IReadOnlyList<AlbumDto> GetArtistAlbums(Guid userId, string artist);
+
+    /// <summary>
+    /// Gets every track from a specific album that's present in the user's library, in track
+    /// order, for the artist drill-down's album view.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="albumId">The album item id.</param>
+    /// <returns>The album's tracks, in disc/track order.</returns>
+    IReadOnlyList<TrackDto> GetAlbumTracks(Guid userId, Guid albumId);
+
+    /// <summary>
     /// Scores every eligible track in the library against the given seed tracks / genres / artists
     /// and returns the highest scoring matches, similar to a streaming service's "you might also like"
     /// panel while building a playlist. Falls back to popularity / recency when no seed is supplied.
