@@ -157,9 +157,11 @@ to `jellyfin-web`'s `index.html`, or a reverse-proxy rule (nginx `sub_filter`, C
 `replace`, etc.) work just as well.
 
 The snippet below adds a floating "Playlist Maker" button, shown while you're browsing
-a music library's tabs (Albums, Suggestions, Album artists, Artists, Playlists, Songs,
-Genres — detected by tab label, so it follows you across whichever one is active
-instead of only appearing on Playlists). Clicking it opens the app in a small
+a music library's tabs (Albums, Album artists, Artists, Songs — detected by tab label,
+so it follows you across whichever one is active instead of only appearing on one tab;
+deliberately not "Suggestions"/"Genres"/"Playlists", which Jellyfin also uses on
+Movies/TV Shows libraries and would otherwise make the button appear there too).
+Clicking it opens the app in a small
 draggable, resizable panel docked over the page — a mini browser rather than a second
 tab — with its own drag handle to move it, resize handles along every edge and corner
 (not just the bottom-right grip) to resize it from whichever side is convenient, and
@@ -421,12 +423,16 @@ Replace `PLAYLIST_MAKER_URL` with your own server's address before using it.
     const BUTTON_ID = "jfPlaylistMakerButton";
     const PANEL_ID = "jfPlaylistMakerPanel";
 
-    // Tab labels from a music library's own tab strip (Albums / Suggestions / Album
-    // artists / Artists / Playlists / Songs / Genres). Matched by exact rendered text
-    // rather than a specific CSS class or URL pattern, so it keeps working across
-    // Jellyfin versions/skins and follows you across whichever tab is active.
+    // Tab labels unique to a music library's own tab strip (Albums / Album artists /
+    // Artists / Songs). Matched by exact rendered text rather than a specific CSS class
+    // or URL pattern, so it keeps working across Jellyfin versions/skins and follows you
+    // across whichever tab is active. Deliberately excludes "Suggestions", "Genres" and
+    // "Playlists" - Jellyfin reuses those same tab labels on Movies/TV Shows libraries
+    // too, so including them caused false positives: pausing a TV show left its own
+    // library page (with its own "Suggestions"/"Genres" tabs) sitting in the DOM behind
+    // the video, which matched just as if it were the music library.
     const LIBRARY_TAB_LABELS = new Set([
-        "Albums", "Suggestions", "Album artists", "Artists", "Playlists", "Songs", "Genres"
+        "Albums", "Album artists", "Artists", "Songs"
     ]);
 
     function isOnMusicLibraryTab() {
