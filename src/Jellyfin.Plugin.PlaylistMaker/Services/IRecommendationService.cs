@@ -19,6 +19,17 @@ public interface IRecommendationService
     IReadOnlyList<TrackDto> Search(Guid userId, string query, int limit);
 
     /// <summary>
+    /// Searches for artists matching the query, for Search to surface a single artist "card"
+    /// (name + photo, linking to the artist drill-down) instead of a flood of individual tracks
+    /// when the query is really an artist name.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="query">Free-text search query.</param>
+    /// <param name="limit">Maximum number of matching artists to return.</param>
+    /// <returns>Matching artists.</returns>
+    IReadOnlyList<ArtistDto> SearchArtists(Guid userId, string query, int limit);
+
+    /// <summary>
     /// Browses the user's music library by genre and/or artist, with no free-text query - used
     /// when a genre/artist chip is picked directly instead of typed search.
     /// </summary>

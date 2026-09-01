@@ -148,6 +148,32 @@ public class RecommendationService : IRecommendationService
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<ArtistDto> SearchArtists(Guid userId, string query, int limit)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null || string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<ArtistDto>();
+        }
+
+        var artistQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicArtist },
+            Recursive = true,
+            SearchTerm = query,
+            Limit = limit
+        };
+
+        return _libraryManager.GetItemList(artistQuery)
+            .Select(a => new ArtistDto
+            {
+                Name = a.Name,
+                ImageItemId = a.HasImage(ImageType.Primary, 0) ? a.Id : (Guid?)null
+            })
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public IReadOnlyList<TrackDto> Browse(Guid userId, IReadOnlyList<string> genres, IReadOnlyList<string> artists, int limit)
     {
         var user = _userManager.GetUserById(userId);

@@ -532,6 +532,18 @@
             cursor: pointer;
         }
 
+        .pmk-artistResultRow {
+            cursor: pointer;
+            padding-top: 0.8em;
+            padding-bottom: 0.8em;
+        }
+
+        .pmk-artistResultArt {
+            width: 3.6em;
+            height: 3.6em;
+            border-radius: 50%;
+        }
+
         .pmk-addAllButton {
             display: block;
             width: 100%;
@@ -1322,7 +1334,8 @@
             playlistOptions: [],
             selectedPlaylistId: '',
             loadedPlaylistName: null,
-            artistBrowse: null
+            artistBrowse: null,
+            searchGeneration: 0
         };
 
         var audioEl = new Audio();
@@ -1907,6 +1920,64 @@
             refreshSearch();
         }
 
+        function buildArtistResultCard(artist) {
+            var row = document.createElement('div');
+            row.className = 'pmk-trackRow pmk-artistResultRow';
+
+            var art = document.createElement('div');
+            art.className = 'pmk-trackArt pmk-artistResultArt';
+            var url = imageUrl(artist.ImageItemId);
+            if (url) {
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = '';
+                img.loading = 'lazy';
+                art.appendChild(img);
+            } else {
+                var note = document.createElement('span');
+                note.textContent = '♪';
+                art.appendChild(note);
+            }
+            row.appendChild(art);
+
+            var info = document.createElement('div');
+            info.className = 'pmk-trackInfo';
+            var name = document.createElement('div');
+            name.className = 'pmk-trackName';
+            name.textContent = artist.Name;
+            info.appendChild(name);
+            var meta = document.createElement('div');
+            meta.className = 'pmk-trackMeta';
+            meta.textContent = 'Artist';
+            info.appendChild(meta);
+            row.appendChild(info);
+
+            var action = document.createElement('button');
+            action.type = 'button';
+            action.className = 'pmk-trackAction';
+            action.textContent = 'Open';
+
+            function activate() { openArtistBrowse(artist.Name); }
+
+            action.addEventListener('click', function (e) {
+                e.stopPropagation();
+                activate();
+            });
+            row.appendChild(action);
+            row.addEventListener('click', activate);
+
+            return row;
+        }
+
+        // Renders one card per matching artist (almost always just one) instead of the normal
+        // track list - used by refreshSearch when the typed query matches an artist by name.
+        function renderArtistSearchResults(container, artists) {
+            clearChildren(container);
+            artists.forEach(function (artist) {
+                container.appendChild(buildArtistResultCard(artist));
+            });
+        }
+
         // Fetches a single-track single/EP's one track and adds it straight to the draft -
         // there's nothing to browse for a one-track release, so opening the album view first
         // would just be an extra click to reach the same "Add" a track row already offers.
@@ -2128,19 +2199,47 @@
                 setSearchCrumbs(null);
             }
 
+            // Bumped unconditionally (not just on the query path below) so a slow response from a
+            // previous call - e.g. an artist-name search still in flight when the box gets cleared
+            // and the chip-browse path below renders instead - can never land late and clobber
+            // whatever refreshSearch has since decided should actually be showing.
+            var generation = ++state.searchGeneration;
+
             var resultsEl = document.getElementById('pmkSearchResults');
             var query = document.getElementById('pmkSearchInput').value.trim();
 
             if (query) {
-                apiGet('/PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
-                    .then(function (tracks) {
-                        renderList(resultsEl, tracks, {
-                            remove: false,
-                            emptyText: 'No matches found.',
-                            onClick: addToDraft
-                        });
+                // Check for an artist match first (a small, cheap lookup) - if the query is really
+                // an artist name, show a single artist card instead of flooding the results with
+                // every one of their tracks individually, the way Spotify/Apple Music surface a
+                // "Top result" artist. Only falls through to the full multi-query Search when no
+                // artist matches, which also means an artist-name search skips that heavier lookup
+                // entirely instead of running it and throwing the results away.
+                apiGet('/PlaylistMaker/SearchArtists', { userId: state.userId, query: query, limit: 5 })
+                    .then(function (artists) {
+                        if (generation !== state.searchGeneration) {
+                            return;
+                        }
+                        if (artists && artists.length) {
+                            renderArtistSearchResults(resultsEl, artists);
+                            return;
+                        }
+                        return apiGet('/PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
+                            .then(function (tracks) {
+                                if (generation !== state.searchGeneration) {
+                                    return;
+                                }
+                                renderList(resultsEl, tracks, {
+                                    remove: false,
+                                    emptyText: 'No matches found.',
+                                    onClick: addToDraft
+                                });
+                            });
                     })
                     .catch(function () {
+                        if (generation !== state.searchGeneration) {
+                            return;
+                        }
                         renderList(resultsEl, [], { emptyText: 'Search failed. Try again.' });
                     });
                 return;
@@ -2160,12 +2259,18 @@
                 artists: Array.from(state.selectedArtists),
                 limit: 40
             }).then(function (tracks) {
+                if (generation !== state.searchGeneration) {
+                    return;
+                }
                 renderList(resultsEl, tracks, {
                     remove: false,
                     emptyText: 'No tracks found for that pick.',
                     onClick: addToDraft
                 });
             }).catch(function () {
+                if (generation !== state.searchGeneration) {
+                    return;
+                }
                 renderList(resultsEl, [], { emptyText: 'Could not load tracks.' });
             });
         }

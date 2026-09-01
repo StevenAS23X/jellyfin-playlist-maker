@@ -9,8 +9,16 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.12.0"
+version: "1.1.13.0"
 changelog: |
+  ## v1.1.13.0
+  - Search now surfaces a single artist card (photo + name, click to open their album/singles
+    browser) when the query matches an artist by name, instead of dumping every one of that
+    artist's individual tracks into the results list - matches how Spotify/Apple Music surface
+    an artist "top result". Falls back to the normal track search when no artist matches, and an
+    artist-name search now skips that heavier multi-query search entirely rather than running it
+    and discarding the results.
+
   ## v1.1.12.0
   - Add an "Add All" button at the end of an album's track list in the artist browser, to add
     every track from that album in one click instead of one at a time.
