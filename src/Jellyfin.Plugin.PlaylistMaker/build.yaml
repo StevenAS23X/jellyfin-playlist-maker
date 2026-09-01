@@ -9,8 +9,19 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.10.0"
+version: "1.1.11.0"
 changelog: |
+  ## v1.1.11.0
+  - Fix: searching for an artist by name could come back empty or with only a few coincidental
+    hits, since search only ever matched a track's own title or its album's name - never the
+    Artists/AlbumArtists tags. Now also resolves matching artist entities and pulls their tracks
+    directly, the same way album/genre matching already worked.
+  - Add an artist drill-down: click any artist name on a track row (Search, Recommended For You,
+    or Your Playlist) to browse that artist's full discography - Albums, then Singles/EPs, then
+    an album's tracks in order - instead of only ever seeing whatever a search/recommendation
+    happened to surface.
+  - Replaced the front-page tagline with an actual step-by-step usage guide.
+
   ## v1.1.10.0
   - "Recommended For You" and "Request Music" now default to collapsed (with a chevron toggle to
     expand) when the app is loaded inside an iframe, like the README's floating mini-panel - there
