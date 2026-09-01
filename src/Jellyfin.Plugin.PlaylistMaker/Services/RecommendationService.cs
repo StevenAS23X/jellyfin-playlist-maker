@@ -234,12 +234,41 @@ public class RecommendationService : IRecommendationService
             return Array.Empty<AlbumDto>();
         }
 
-        // The caller already has an exact artist name in hand (from a track's own Artists/
-        // AlbumArtists tag, e.g. clicking an artist link on a search result), so match exactly
-        // rather than re-running it through SearchTerm/fuzzy matching, which could pick up a
-        // different, similarly-named artist instead.
-        return GetAllTracks(user)
-            .Where(t => TrackDtoMapper.GetArtistNames(t).Any(a => string.Equals(a, artist, StringComparison.OrdinalIgnoreCase)))
+        // Resolve the artist entity via an indexed SearchTerm lookup (same as Search's artist
+        // matching), not a full-library scan filtered by name in memory - this used to call
+        // GetAllTracks(user), which pulls every track in the entire library into memory on every
+        // single artist click regardless of that artist's actual size, and was the main reason
+        // opening the artist browser felt slow on larger libraries. SearchTerm is fuzzy, so it's
+        // still narrowed to an exact (case-insensitive) name match afterward - the caller already
+        // has the precise artist name in hand (from a track's own Artists/AlbumArtists tag, e.g.
+        // clicking an artist link on a search result), so a different, similarly-named artist
+        // entity should never be picked up.
+        var artistQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicArtist },
+            Recursive = true,
+            SearchTerm = artist,
+            Limit = 10
+        };
+        var artistIds = _libraryManager.GetItemList(artistQuery)
+            .Where(a => string.Equals(a.Name, artist, StringComparison.OrdinalIgnoreCase))
+            .Select(a => a.Id)
+            .ToArray();
+
+        if (artistIds.Length == 0)
+        {
+            return Array.Empty<AlbumDto>();
+        }
+
+        var trackQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Audio },
+            Recursive = true,
+            IsVirtualItem = false,
+            ArtistIds = artistIds
+        };
+
+        return DedupeBySong(_libraryManager.GetItemList(trackQuery).OfType<Audio>())
             .Where(t => t.AlbumEntity is not null)
             .GroupBy(t => t.AlbumEntity!.Id)
             .Select(g =>

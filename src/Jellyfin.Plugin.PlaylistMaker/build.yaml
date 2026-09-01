@@ -9,8 +9,18 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.11.0"
+version: "1.1.12.0"
 changelog: |
+  ## v1.1.12.0
+  - Add an "Add All" button at the end of an album's track list in the artist browser, to add
+    every track from that album in one click instead of one at a time.
+  - Singles/EPs with exactly one owned track now show an "Add" button directly in the
+    Albums/Singles list, instead of opening the album view first to reach the same single track.
+  - Sped up opening the artist browser: GetArtistAlbums no longer scans every track in the
+    entire library in memory to find one artist's albums - it now resolves the artist via the
+    same indexed lookup Search already used, then pulls only that artist's tracks directly, the
+    same way album/genre matching does.
+
   ## v1.1.11.0
   - Fix: searching for an artist by name could come back empty or with only a few coincidental
     hits, since search only ever matched a track's own title or its album's name - never the

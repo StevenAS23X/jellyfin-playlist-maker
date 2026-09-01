@@ -532,6 +532,24 @@
             cursor: pointer;
         }
 
+        .pmk-addAllButton {
+            display: block;
+            width: 100%;
+            margin-top: 0.6em;
+            padding: 0.6em;
+            border: 1px solid rgba(0, 164, 220, 0.5);
+            border-radius: 0.35em;
+            background: rgba(0, 164, 220, 0.12);
+            color: rgba(0, 164, 220, 0.9);
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .pmk-addAllButton:hover {
+            background: rgba(0, 164, 220, 0.22);
+        }
+
         .pmk-trackAction {
             flex-shrink: 0;
             border-radius: 0.25em;
@@ -1889,7 +1907,30 @@
             refreshSearch();
         }
 
+        // Fetches a single-track single/EP's one track and adds it straight to the draft -
+        // there's nothing to browse for a one-track release, so opening the album view first
+        // would just be an extra click to reach the same "Add" a track row already offers.
+        function addSingleTrackAlbum(album, actionButton) {
+            if (actionButton) {
+                actionButton.disabled = true;
+            }
+            apiGet('/PlaylistMaker/AlbumTracks', { userId: state.userId, albumId: album.Id })
+                .then(function (tracks) {
+                    if (tracks && tracks.length) {
+                        addToDraft(tracks[0]);
+                    }
+                })
+                .catch(function () { /* leave the row as-is; nothing to add on failure */ })
+                .finally(function () {
+                    if (actionButton) {
+                        actionButton.disabled = false;
+                    }
+                });
+        }
+
         function buildAlbumRow(album, onOpen) {
+            var isSingleTrack = album.TrackCount === 1;
+
             var row = document.createElement('div');
             row.className = 'pmk-trackRow pmk-albumRow';
 
@@ -1930,14 +1971,23 @@
             var action = document.createElement('button');
             action.type = 'button';
             action.className = 'pmk-trackAction';
-            action.textContent = 'Open';
+            action.textContent = isSingleTrack ? 'Add' : 'Open';
+
+            function activate() {
+                if (isSingleTrack) {
+                    addSingleTrackAlbum(album, action);
+                } else {
+                    onOpen();
+                }
+            }
+
             action.addEventListener('click', function (e) {
                 e.stopPropagation();
-                onOpen();
+                activate();
             });
             row.appendChild(action);
 
-            row.addEventListener('click', onOpen);
+            row.addEventListener('click', activate);
 
             return row;
         }
@@ -2034,6 +2084,17 @@
                 emptyText: 'No tracks found for this album.',
                 onClick: addToDraft
             });
+
+            if (browse.tracks.length > 1) {
+                var addAll = document.createElement('button');
+                addAll.type = 'button';
+                addAll.className = 'pmk-addAllButton';
+                addAll.textContent = 'Add All (' + browse.tracks.length + ')';
+                addAll.addEventListener('click', function () {
+                    browse.tracks.forEach(function (t) { addToDraft(t); });
+                });
+                resultsEl.appendChild(addAll);
+            }
         }
 
         function openAlbumBrowse(album) {
