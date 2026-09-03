@@ -9,8 +9,14 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.16.0"
+version: "1.1.17.0"
 changelog: |
+  ## v1.1.17.0
+  - The "Search" link on a missing playlist track now searches YouTube Music
+    (music.youtube.com) instead of regular YouTube - favors official studio audio/albums over
+    the lyric videos, live performances, and covers a plain YouTube search tends to mix in,
+    which is generally what you actually want MeTube to grab.
+
   ## v1.1.16.0
   - Fix CSV import falsely flagging owned tracks as missing when the imported title has trailing
     "extra info" a library tag doesn't - a colon subtitle ("Song: The Ballad of..."), a "(feat.

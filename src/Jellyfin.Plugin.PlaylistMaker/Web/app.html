@@ -1865,20 +1865,22 @@
             actions.className = 'pmk-trackActions';
 
             // Missing placeholders get download helpers instead of a play preview: a YouTube
-            // search link to review and grab a real URL, and a "Copy" button with a yt-dlp
-            // search query ("ytsearch1:Artist - Title") ready to paste straight into a
-            // self-hosted downloader like MeTube - yt-dlp resolves that prefix itself by
-            // searching and grabbing the top result, so no separate search-and-copy step needed
-            // for anyone who trusts the top hit.
+            // Music search link to review and grab a real URL (favors official studio
+            // audio/albums over the lyric videos, live performances, and covers that a plain
+            // YouTube search mixes in - a better match for what MeTube should actually grab),
+            // and a "Copy" button with a yt-dlp search query ("ytsearch1:Artist - Title") ready
+            // to paste straight into a self-hosted downloader - yt-dlp resolves that prefix
+            // itself by searching regular YouTube and grabbing the top result, so no separate
+            // search-and-copy step needed for anyone who trusts the top hit.
             if (track.IsPlaceholder) {
                 var query = metubeSearchQuery(track);
 
                 var searchLink = document.createElement('a');
                 searchLink.className = 'pmk-trackAction';
-                searchLink.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query);
+                searchLink.href = 'https://music.youtube.com/search?q=' + encodeURIComponent(query);
                 searchLink.target = '_blank';
                 searchLink.rel = 'noopener noreferrer';
-                searchLink.title = 'Search YouTube for this track';
+                searchLink.title = 'Search YouTube Music for this track';
                 searchLink.textContent = 'Search';
                 searchLink.addEventListener('click', function (e) { e.stopPropagation(); });
                 actions.appendChild(searchLink);
