@@ -582,8 +582,18 @@
             background: rgba(0, 164, 220, 0.22);
         }
 
+        .pmk-trackActions {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.35em;
+        }
+
+        /* Also used on an <a> (the missing-track "Search" link), so it needs the button-like
+           display/decoration reset that a plain <button> already gets by default. */
         .pmk-trackAction {
             flex-shrink: 0;
+            display: inline-block;
             border-radius: 0.25em;
             border: 1px solid rgba(255, 255, 255, 0.35);
             background: transparent;
@@ -591,6 +601,7 @@
             font-size: 0.85em;
             padding: 0.35em 1.1em;
             cursor: pointer;
+            text-decoration: none;
         }
 
         .pmk-trackAction:hover {
@@ -737,6 +748,12 @@
             background: rgba(224, 69, 91, 0.1);
             color: #e0455b;
             font-size: 0.85em;
+        }
+
+        .pmk-missingBannerActions {
+            flex-shrink: 0;
+            display: flex;
+            gap: 0.4em;
         }
 
         .pmk-requestMissingButton {
@@ -1274,7 +1291,10 @@
 
                 <div class="pmk-missingBanner" id="pmkMissingBanner" hidden>
                     <span id="pmkMissingBannerText"></span>
-                    <button type="button" id="pmkRequestMissingButton" class="pmk-requestMissingButton" hidden>Request via Lidarr</button>
+                    <div class="pmk-missingBannerActions">
+                        <button type="button" id="pmkCopyAllMissingButton" class="pmk-requestMissingButton" title="Copy every missing track as a yt-dlp search query (one per line) ready to paste into MeTube">Copy Searches</button>
+                        <button type="button" id="pmkRequestMissingButton" class="pmk-requestMissingButton" hidden>Request via Lidarr</button>
+                    </div>
                 </div>
 
                 <button type="button" id="pmkSaveButton" class="pmk-saveButton" disabled>
@@ -1767,6 +1787,49 @@
             return meta;
         }
 
+        function metubeSearchQuery(track) {
+            var artist = (track.Artists && track.Artists[0]) || '';
+            return (artist ? artist + ' - ' : '') + (track.Name || '');
+        }
+
+        // Copies text to the clipboard, falling back to the legacy execCommand approach when the
+        // modern Clipboard API isn't available - notably on a plain-HTTP Jellyfin install (common
+        // for a self-hosted LAN server), where navigator.clipboard is only exposed in secure
+        // (HTTPS/localhost) contexts.
+        function copyText(text, buttonEl, doneLabel) {
+            var restore = buttonEl.textContent;
+            function flash(label) {
+                buttonEl.textContent = label;
+                window.setTimeout(function () { buttonEl.textContent = restore; }, 1500);
+            }
+
+            function legacyCopy() {
+                var textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                var ok = false;
+                try {
+                    ok = document.execCommand('copy');
+                } catch (err) {
+                    ok = false;
+                }
+                document.body.removeChild(textarea);
+                flash(ok ? (doneLabel || 'Copied') : 'Copy failed');
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(function () {
+                    flash(doneLabel || 'Copied');
+                }).catch(legacyCopy);
+            } else {
+                legacyCopy();
+            }
+        }
+
         function buildTrackRow(track, options) {
             var row = document.createElement('div');
             row.className = 'pmk-trackRow' + (track.IsPlaceholder ? ' pmk-trackRowMissing' : '');
@@ -1798,13 +1861,49 @@
 
             row.appendChild(info);
 
+            var actions = document.createElement('div');
+            actions.className = 'pmk-trackActions';
+
+            // Missing placeholders get download helpers instead of a play preview: a YouTube
+            // search link to review and grab a real URL, and a "Copy" button with a yt-dlp
+            // search query ("ytsearch1:Artist - Title") ready to paste straight into a
+            // self-hosted downloader like MeTube - yt-dlp resolves that prefix itself by
+            // searching and grabbing the top result, so no separate search-and-copy step needed
+            // for anyone who trusts the top hit.
+            if (track.IsPlaceholder) {
+                var query = metubeSearchQuery(track);
+
+                var searchLink = document.createElement('a');
+                searchLink.className = 'pmk-trackAction';
+                searchLink.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query);
+                searchLink.target = '_blank';
+                searchLink.rel = 'noopener noreferrer';
+                searchLink.title = 'Search YouTube for this track';
+                searchLink.textContent = 'Search';
+                searchLink.addEventListener('click', function (e) { e.stopPropagation(); });
+                actions.appendChild(searchLink);
+
+                var copyButton = document.createElement('button');
+                copyButton.type = 'button';
+                copyButton.className = 'pmk-trackAction';
+                copyButton.title = 'Copy a yt-dlp search query ("ytsearch1:...") to paste into MeTube’s URL box';
+                copyButton.textContent = 'Copy';
+                copyButton.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    copyText('ytsearch1:' + query, copyButton, 'Copied!');
+                });
+                actions.appendChild(copyButton);
+            }
+
             var action = document.createElement('button');
             action.type = 'button';
             action.className = 'pmk-trackAction' + (options.remove ? ' pmk-removeAction' : '');
             action.textContent = options.remove ? 'Remove' : 'Add';
             action.title = options.remove ? 'Remove from playlist' : 'Add to playlist';
             action.addEventListener('click', function () { options.onClick(track); });
-            row.appendChild(action);
+            actions.appendChild(action);
+
+            row.appendChild(actions);
 
             return row;
         }
@@ -1952,7 +2051,7 @@
                 (totalMinutes > 0 ? ' • ~' + totalMinutes + ' min' : '');
 
             saveButton.textContent = state.editingPlaylistId ? 'Update Playlist' : 'Save Playlist';
-            saveButton.disabled = draftIds().length === 0;
+            saveButton.disabled = state.draft.length === 0;
             renderCoverButton();
             renderMissingBanner();
         }
@@ -1971,6 +2070,19 @@
             banner.hidden = false;
             textEl.textContent = missing.length + ' track' + (missing.length === 1 ? '' : 's') + ' not in your library yet.';
             requestButton.hidden = !state.musicRequestsEnabled;
+        }
+
+        // Copies every missing track as a "ytsearch1:Artist - Title" line, one per row, so they
+        // can be worked through one at a time in MeTube (or any yt-dlp-backed downloader) without
+        // re-typing or re-searching each one by hand.
+        function copyAllMissingSearches() {
+            var missing = state.draft.filter(function (t) { return t.IsPlaceholder; });
+            if (missing.length === 0) {
+                return;
+            }
+            var lines = missing.map(function (t) { return 'ytsearch1:' + metubeSearchQuery(t); });
+            var button = document.getElementById('pmkCopyAllMissingButton');
+            copyText(lines.join('\n'), button, 'Copied ' + lines.length + '!');
         }
 
         function addToDraft(track) {
@@ -2976,7 +3088,11 @@
                 showStatus('Give your playlist a name first.', true);
                 return;
             }
-            if (draftIds().length === 0) {
+            // Deliberately allows saving with zero real tracks, as long as there's at least a
+            // placeholder - an imported playlist that's entirely (or mostly) missing from the
+            // library still needs somewhere to persist that missing list against (Jellyfin is
+            // fine creating a playlist with no items yet; see PlaylistManager.CreatePlaylist).
+            if (state.draft.length === 0) {
                 showStatus('Add at least one track first.', true);
                 return;
             }
@@ -3011,7 +3127,7 @@
                 }
 
                 Promise.all(work).then(function () {
-                    showStatus('Updated "' + name + '" — ' + state.draft.length + ' tracks.', false);
+                    showStatus('Updated "' + name + '" — ' + draftSummaryText() + '.', false);
                     return syncPendingImports(state.editingPlaylistId).then(function () {
                         return loadPlaylistPicker(state.editingPlaylistId);
                     }).then(function () {
@@ -3020,7 +3136,7 @@
                 }).catch(function () {
                     showStatus('Could not update playlist.', true);
                 }).finally(function () {
-                    saveButton.disabled = draftIds().length === 0;
+                    saveButton.disabled = state.draft.length === 0;
                 });
             } else {
                 apiPost('/PlaylistMaker/Playlists', {
@@ -3029,7 +3145,7 @@
                     ItemIds: draftIds(),
                     Public: !!publicCheckbox.checked
                 }).then(function (result) {
-                    showStatus('Saved "' + name + '" with ' + state.draft.length + ' tracks.', false);
+                    showStatus('Saved "' + name + '" with ' + draftSummaryText() + '.', false);
                     // Re-fetch from the server rather than assuming the draft order round-tripped
                     // exactly, so state.loadedEntryIdByTrackId holds the real playlist entry ids -
                     // needed to remove specific tracks later.
@@ -3041,9 +3157,21 @@
                 }).catch(function () {
                     showStatus('Could not save playlist.', true);
                 }).finally(function () {
-                    saveButton.disabled = draftIds().length === 0;
+                    saveButton.disabled = state.draft.length === 0;
                 });
             }
+        }
+
+        // "5 tracks" or "5 tracks (3 still missing)" - keeps the missing count visible in save
+        // confirmations instead of folding it into a single misleading total.
+        function draftSummaryText() {
+            var real = draftIds().length;
+            var missing = state.draft.length - real;
+            var text = real + (real === 1 ? ' track' : ' tracks');
+            if (missing > 0) {
+                text += ' (' + missing + ' still missing)';
+            }
+            return text;
         }
 
         function uploadCoverArt(file) {
@@ -3532,6 +3660,7 @@
                 e.target.value = '';
             });
             document.getElementById('pmkRequestMissingButton').addEventListener('click', requestAllMissing);
+            document.getElementById('pmkCopyAllMissingButton').addEventListener('click', copyAllMissingSearches);
 
             document.getElementById('pmkCoverButton').addEventListener('click', function () {
                 document.getElementById('pmkCoverInput').click();

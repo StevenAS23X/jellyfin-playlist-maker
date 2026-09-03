@@ -9,8 +9,21 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.14.0"
+version: "1.1.15.0"
 changelog: |
+  ## v1.1.15.0
+  - Playlists can now be saved with zero matched tracks, as long as at least one imported row is
+    still missing - previously an import where nothing matched couldn't be saved at all, with
+    nowhere to persist the missing list against. Jellyfin is fine creating an empty playlist, so
+    this now just tracks the missing rows against it until you save real tracks in later.
+  - Each missing placeholder gets a "Search" link (opens a YouTube search for it) and a "Copy"
+    button (copies a yt-dlp search query, "ytsearch1:Artist - Title", ready to paste into a
+    self-hosted downloader like MeTube) - either lets you skip manually retyping the track name.
+  - Add "Copy Searches" to the missing-tracks banner: copies every still-missing track as one
+    query per line, for working through a big batch without repeating the per-track copy.
+  - Save confirmations now separate real vs. still-missing track counts (e.g. "5 tracks (3 still
+    missing)") instead of folding placeholders into one misleading total.
+
   ## v1.1.14.0
   - Add "Import CSV" to Your Playlist: import a playlist export (e.g. Exportify's Spotify CSV,
     or any CSV with Track/Artist columns) and build a playlist from it. Matched tracks are added
