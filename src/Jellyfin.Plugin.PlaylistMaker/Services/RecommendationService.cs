@@ -174,6 +174,114 @@ public class RecommendationService : IRecommendationService
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<TrackDto?> MatchImportRows(Guid userId, IReadOnlyList<ImportRowDto> rows)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null || rows.Count == 0)
+        {
+            return rows.Select(_ => (TrackDto?)null).ToList();
+        }
+
+        // Resolves and caches each distinct artist's tracks once via the same indexed
+        // artist-lookup pattern GetArtistAlbums uses, rather than a separate library query per
+        // row - an imported playlist commonly repeats the same artist across many rows.
+        var tracksByArtist = new Dictionary<string, List<Audio>>(StringComparer.Ordinal);
+
+        List<Audio> GetArtistTracks(string artistName)
+        {
+            var key = TrackDtoMapper.NormalizeForMatch(artistName);
+            if (tracksByArtist.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var artistQuery = new InternalItemsQuery(user)
+            {
+                IncludeItemTypes = new[] { BaseItemKind.MusicArtist },
+                Recursive = true,
+                SearchTerm = artistName,
+                Limit = 10
+            };
+            var artistIds = _libraryManager.GetItemList(artistQuery)
+                .Where(a => TrackDtoMapper.NormalizeForMatch(a.Name) == key)
+                .Select(a => a.Id)
+                .ToArray();
+
+            List<Audio> tracks;
+            if (artistIds.Length == 0)
+            {
+                tracks = new List<Audio>();
+            }
+            else
+            {
+                var trackQuery = new InternalItemsQuery(user)
+                {
+                    IncludeItemTypes = new[] { BaseItemKind.Audio },
+                    Recursive = true,
+                    IsVirtualItem = false,
+                    ArtistIds = artistIds
+                };
+                tracks = DedupeBySong(_libraryManager.GetItemList(trackQuery).OfType<Audio>()).ToList();
+            }
+
+            tracksByArtist[key] = tracks;
+            return tracks;
+        }
+
+        var results = new List<TrackDto?>(rows.Count);
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.ArtistName) || string.IsNullOrWhiteSpace(row.TrackName))
+            {
+                results.Add(null);
+                continue;
+            }
+
+            var candidates = GetArtistTracks(row.ArtistName);
+            var titleKey = TrackDtoMapper.NormalizeForMatch(row.TrackName);
+            var matches = candidates.Where(t => TrackDtoMapper.NormalizeForMatch(t.Name) == titleKey).ToList();
+
+            Audio? best = matches.Count switch
+            {
+                0 => null,
+                1 => matches[0],
+                _ => PickBestImportMatch(matches, row)
+            };
+
+            results.Add(best is null ? null : TrackDtoMapper.ToDto(best));
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Narrows multiple same-titled tracks by the same artist down to one (a re-record, a
+    /// deluxe-edition duplicate, a live version, etc.) using whichever of album/duration the
+    /// imported row actually provided - album first, then closest duration.
+    /// </summary>
+    private static Audio PickBestImportMatch(List<Audio> matches, ImportRowDto row)
+    {
+        IEnumerable<Audio> narrowed = matches;
+
+        if (!string.IsNullOrWhiteSpace(row.AlbumName))
+        {
+            var albumKey = TrackDtoMapper.NormalizeForMatch(row.AlbumName);
+            var albumMatches = narrowed.Where(t => TrackDtoMapper.NormalizeForMatch(t.AlbumEntity?.Name) == albumKey).ToList();
+            if (albumMatches.Count > 0)
+            {
+                narrowed = albumMatches;
+            }
+        }
+
+        if (row.DurationTicks.HasValue)
+        {
+            return narrowed.OrderBy(t => Math.Abs((t.RunTimeTicks ?? 0) - row.DurationTicks.Value)).First();
+        }
+
+        return narrowed.First();
+    }
+
+    /// <inheritdoc />
     public IReadOnlyList<TrackDto> Browse(Guid userId, IReadOnlyList<string> genres, IReadOnlyList<string> artists, int limit)
     {
         var user = _userManager.GetUserById(userId);

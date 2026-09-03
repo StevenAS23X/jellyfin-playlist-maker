@@ -266,13 +266,16 @@
         .pmk-playlistPickerRow {
             margin-bottom: 0.8em;
             position: relative;
+            display: flex;
+            gap: 0.5em;
         }
 
         /* Native <select> dropdown popups are rendered by the browser/OS, not the page, so our
            dark theme can't reliably reach them across browsers - this is a custom-built dropdown
            instead so the open list actually matches the rest of the app. */
         .pmk-playlistPicker {
-            width: 100%;
+            flex: 1;
+            min-width: 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -301,6 +304,23 @@
             flex-shrink: 0;
             color: #b3b3b3;
             font-size: 0.8em;
+        }
+
+        .pmk-importButton {
+            flex-shrink: 0;
+            padding: 0.55em 0.9em;
+            border-radius: 0.4em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
+            cursor: pointer;
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+
+        .pmk-importButton:hover {
+            border-color: rgba(0, 164, 220, 0.9);
+            color: rgba(0, 164, 220, 0.9);
         }
 
         .pmk-playlistMenu {
@@ -703,6 +723,60 @@
 
         .pmk-status.pmk-statusOk {
             color: #3fbf5f;
+        }
+
+        .pmk-missingBanner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6em;
+            margin-top: 0.6em;
+            padding: 0.5em 0.7em;
+            border-radius: 0.35em;
+            border: 1px solid rgba(224, 69, 91, 0.35);
+            background: rgba(224, 69, 91, 0.1);
+            color: #e0455b;
+            font-size: 0.85em;
+        }
+
+        .pmk-requestMissingButton {
+            flex-shrink: 0;
+            padding: 0.4em 0.9em;
+            border-radius: 0.3em;
+            border: 1px solid rgba(224, 69, 91, 0.5);
+            background: transparent;
+            color: #e0455b;
+            font-size: 0.85em;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .pmk-requestMissingButton:hover {
+            background: rgba(224, 69, 91, 0.15);
+        }
+
+        .pmk-requestMissingButton:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .pmk-trackRowMissing {
+            opacity: 0.55;
+        }
+
+        .pmk-trackRowMissing .pmk-trackArt {
+            cursor: default;
+        }
+
+        .pmk-missingBadge {
+            display: inline-block;
+            margin-left: 0.5em;
+            padding: 0.05em 0.5em;
+            border-radius: 999px;
+            background: rgba(224, 69, 91, 0.18);
+            color: #e0455b;
+            font-size: 0.75em;
+            vertical-align: middle;
         }
 
         .pmk-recommendHeader {
@@ -1174,6 +1248,8 @@
                         <span class="pmk-playlistPickerLabel" id="pmkPlaylistPickerLabel">+ New playlist</span>
                         <span class="pmk-playlistPickerCaret">&#9662;</span>
                     </button>
+                    <button type="button" id="pmkImportButton" class="pmk-importButton" title="Import a playlist from a CSV export (e.g. Exportify) - matched tracks are added, anything missing shows as a placeholder until it's in your library">Import CSV</button>
+                    <input type="file" id="pmkImportInput" accept=".csv,text/csv" hidden />
                     <div id="pmkPlaylistMenu" class="pmk-playlistMenu" role="listbox" hidden></div>
                 </div>
 
@@ -1195,6 +1271,11 @@
                 <ol class="pmk-draftList" id="pmkDraftList">
                     <li class="pmk-empty">Add tracks from Search or Recommended to build your playlist.</li>
                 </ol>
+
+                <div class="pmk-missingBanner" id="pmkMissingBanner" hidden>
+                    <span id="pmkMissingBannerText"></span>
+                    <button type="button" id="pmkRequestMissingButton" class="pmk-requestMissingButton" hidden>Request via Lidarr</button>
+                </div>
 
                 <button type="button" id="pmkSaveButton" class="pmk-saveButton" disabled>
                     Save Playlist
@@ -1335,7 +1416,8 @@
             selectedPlaylistId: '',
             loadedPlaylistName: null,
             artistBrowse: null,
-            searchGeneration: 0
+            searchGeneration: 0,
+            musicRequestsEnabled: false
         };
 
         var audioEl = new Audio();
@@ -1634,7 +1716,10 @@
             playIcon.className = 'pmk-trackArtPlayIcon';
             art.appendChild(playIcon);
 
-            art.addEventListener('click', function () { togglePlayback(track); });
+            // Placeholders (an imported row not yet in the library) have no real item to stream.
+            if (!track.IsPlaceholder) {
+                art.addEventListener('click', function () { togglePlayback(track); });
+            }
             return art;
         }
 
@@ -1684,7 +1769,7 @@
 
         function buildTrackRow(track, options) {
             var row = document.createElement('div');
-            row.className = 'pmk-trackRow';
+            row.className = 'pmk-trackRow' + (track.IsPlaceholder ? ' pmk-trackRowMissing' : '');
 
             row.appendChild(buildTrackArt(track));
 
@@ -1694,6 +1779,12 @@
             var name = document.createElement('div');
             name.className = 'pmk-trackName';
             name.textContent = track.Name;
+            if (track.IsPlaceholder) {
+                var badge = document.createElement('span');
+                badge.className = 'pmk-missingBadge';
+                badge.textContent = 'Missing';
+                name.appendChild(badge);
+            }
             info.appendChild(name);
 
             info.appendChild(buildTrackMeta(track, !options.remove));
@@ -1818,8 +1909,11 @@
             render();
         }
 
+        // Placeholders (imported rows not yet in the library) carry a synthetic Id, not a real
+        // library item id - never send them anywhere that expects one (playlist save, recommendation
+        // seeding, etc).
         function draftIds() {
-            return state.draft.map(function (t) { return t.Id; });
+            return state.draft.filter(function (t) { return !t.IsPlaceholder; }).map(function (t) { return t.Id; });
         }
 
         function renderCoverButton() {
@@ -1858,8 +1952,25 @@
                 (totalMinutes > 0 ? ' • ~' + totalMinutes + ' min' : '');
 
             saveButton.textContent = state.editingPlaylistId ? 'Update Playlist' : 'Save Playlist';
-            saveButton.disabled = state.draft.length === 0;
+            saveButton.disabled = draftIds().length === 0;
             renderCoverButton();
+            renderMissingBanner();
+        }
+
+        function renderMissingBanner() {
+            var banner = document.getElementById('pmkMissingBanner');
+            var textEl = document.getElementById('pmkMissingBannerText');
+            var requestButton = document.getElementById('pmkRequestMissingButton');
+            var missing = state.draft.filter(function (t) { return t.IsPlaceholder; });
+
+            if (missing.length === 0) {
+                banner.hidden = true;
+                return;
+            }
+
+            banner.hidden = false;
+            textEl.textContent = missing.length + ' track' + (missing.length === 1 ? '' : 's') + ' not in your library yet.';
+            requestButton.hidden = !state.musicRequestsEnabled;
         }
 
         function addToDraft(track) {
@@ -1875,6 +1986,400 @@
             state.draft = state.draft.filter(function (t) { return t.Id !== id; });
             renderDraft();
             scheduleRecommendationRefresh(0);
+        }
+
+        // Minimal RFC4180-ish CSV parser (quoted fields, embedded commas/newlines, "" escaping) -
+        // covers Exportify-style exports without pulling in an external library. Returns an array
+        // of rows, each an array of raw string cells.
+        function parseCsv(text) {
+            var rows = [];
+            var row = [];
+            var field = '';
+            var inQuotes = false;
+            var i = 0;
+            var len = text.length;
+
+            function pushField() {
+                row.push(field);
+                field = '';
+            }
+            function pushRow() {
+                pushField();
+                rows.push(row);
+                row = [];
+            }
+
+            while (i < len) {
+                var c = text[i];
+                if (inQuotes) {
+                    if (c === '"') {
+                        if (text[i + 1] === '"') {
+                            field += '"';
+                            i += 2;
+                            continue;
+                        }
+                        inQuotes = false;
+                        i++;
+                        continue;
+                    }
+                    field += c;
+                    i++;
+                    continue;
+                }
+                if (c === '"') {
+                    inQuotes = true;
+                    i++;
+                    continue;
+                }
+                if (c === ',') {
+                    pushField();
+                    i++;
+                    continue;
+                }
+                if (c === '\r') {
+                    i++;
+                    continue;
+                }
+                if (c === '\n') {
+                    pushRow();
+                    i++;
+                    continue;
+                }
+                field += c;
+                i++;
+            }
+            if (field.length > 0 || row.length > 0) {
+                pushRow();
+            }
+
+            return rows.filter(function (r) { return r.length > 1 || (r.length === 1 && r[0] !== ''); });
+        }
+
+        // Header names to look for, covering Exportify's Spotify export columns as well as
+        // plainer/simpler CSVs someone might hand-build.
+        var IMPORT_HEADER_ALIASES = {
+            track: ['track name', 'title', 'name', 'track', 'song', 'song name'],
+            artist: ['artist name(s)', 'artist name', 'artist', 'artists'],
+            album: ['album name', 'album'],
+            duration: ['duration (ms)', 'duration_ms', 'duration', 'length', 'length (ms)']
+        };
+
+        function findColumn(headers, aliases) {
+            for (var i = 0; i < headers.length; i++) {
+                if (aliases.indexOf(headers[i].trim().toLowerCase()) !== -1) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        function parseDurationToTicks(raw, headerLabel) {
+            var value = Number(raw);
+            if (!raw || isNaN(value) || value <= 0) {
+                return null;
+            }
+            // Exportify-style headers say milliseconds outright; a bare "Duration"/"Length"
+            // column is ambiguous, so anything large enough that it couldn't plausibly be a
+            // track length in seconds is assumed to be milliseconds too.
+            var isMs = /ms/i.test(headerLabel) || value > 1000;
+            var ms = isMs ? value : value * 1000;
+            return Math.round(ms * 10000);
+        }
+
+        // Parses a CSV's text into import rows, or null if it doesn't look like a playlist export
+        // at all (no recognizable Track/Artist columns).
+        function rowsFromCsv(text) {
+            var table = parseCsv(text);
+            if (table.length < 2) {
+                return [];
+            }
+
+            var headers = table[0];
+            var trackCol = findColumn(headers, IMPORT_HEADER_ALIASES.track);
+            var artistCol = findColumn(headers, IMPORT_HEADER_ALIASES.artist);
+            var albumCol = findColumn(headers, IMPORT_HEADER_ALIASES.album);
+            var durationCol = findColumn(headers, IMPORT_HEADER_ALIASES.duration);
+
+            if (trackCol === -1 || artistCol === -1) {
+                return null;
+            }
+
+            var durationHeaderLabel = durationCol !== -1 ? headers[durationCol] : '';
+
+            return table.slice(1)
+                .map(function (cells) {
+                    var trackName = (cells[trackCol] || '').trim();
+                    // "Artist Name(s)" from Exportify can be comma-separated for multiple artists -
+                    // only the first/primary one is used for matching, same as a track's own
+                    // primary artist tag.
+                    var artistName = (cells[artistCol] || '').split(',')[0].trim();
+                    var albumName = albumCol !== -1 ? (cells[albumCol] || '').trim() : '';
+                    var durationTicks = durationCol !== -1 ? parseDurationToTicks(cells[durationCol], durationHeaderLabel) : null;
+
+                    return {
+                        TrackName: trackName,
+                        ArtistName: artistName,
+                        AlbumName: albumName || null,
+                        DurationTicks: durationTicks
+                    };
+                })
+                .filter(function (row) { return row.TrackName && row.ArtistName; });
+        }
+
+        function buildPlaceholderTrack(row) {
+            return {
+                Id: 'import-missing:' + Date.now().toString(36) + Math.random().toString(36).slice(2),
+                IsPlaceholder: true,
+                Name: row.TrackName || 'Unknown track',
+                Artists: row.ArtistName ? [row.ArtistName] : [],
+                Album: row.AlbumName || null,
+                Genres: [],
+                RunTimeTicks: row.DurationTicks || null,
+                MatchReason: null,
+                ImageItemId: null,
+                PlaylistEntryId: null,
+                ImportRow: { TrackName: row.TrackName, ArtistName: row.ArtistName, AlbumName: row.AlbumName, DurationTicks: row.DurationTicks }
+            };
+        }
+
+        function appendPlaceholders(rows) {
+            rows.forEach(function (row) {
+                state.draft.push(buildPlaceholderTrack(row));
+            });
+        }
+
+        function importPlaylistFromCsv(file) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var rows = rowsFromCsv(String(reader.result || ''));
+                if (rows === null) {
+                    showStatus('Could not find Track/Artist columns in that CSV.', true);
+                    return;
+                }
+                if (rows.length === 0) {
+                    showStatus('No usable rows found in that CSV.', true);
+                    return;
+                }
+                runImport(rows);
+            };
+            reader.onerror = function () {
+                showStatus('Could not read that file.', true);
+            };
+            reader.readAsText(file);
+        }
+
+        function runImport(rows) {
+            showStatus('Importing ' + rows.length + ' track' + (rows.length === 1 ? '' : 's') + '…', false);
+            apiPost('/PlaylistMaker/ImportMatch', { UserId: state.userId, Rows: rows })
+                .then(function (results) {
+                    var matchedCount = 0;
+                    var missingRows = [];
+                    (results || []).forEach(function (result) {
+                        if (result.MatchedTrack) {
+                            matchedCount++;
+                            if (!state.draft.some(function (t) { return t.Id === result.MatchedTrack.Id; })) {
+                                state.draft.push(result.MatchedTrack);
+                            }
+                        } else {
+                            missingRows.push({
+                                TrackName: result.TrackName,
+                                ArtistName: result.ArtistName,
+                                AlbumName: result.AlbumName,
+                                DurationTicks: result.DurationTicks
+                            });
+                        }
+                    });
+
+                    appendPlaceholders(missingRows);
+                    renderDraft();
+                    scheduleRecommendationRefresh(0);
+
+                    var message = 'Imported ' + matchedCount + ' of ' + rows.length + ' tracks';
+                    message += missingRows.length
+                        ? ' — ' + missingRows.length + ' not in your library yet (shown as placeholders).'
+                        : '.';
+                    showStatus(message, false);
+                })
+                .catch(function () {
+                    showStatus('Import failed. Try again.', true);
+                });
+        }
+
+        // Sends every unique missing (artist, album) pair from the draft to Lidarr - a placeholder
+        // with no album name falls back to requesting the whole artist, since there's nothing more
+        // specific to search for. Requests run one at a time (not in parallel) since they share the
+        // same per-user rate limiter as every other Request Music action, and a burst of parallel
+        // requests would just trip it immediately instead of spacing out naturally.
+        function requestAllMissing() {
+            var missing = state.draft.filter(function (t) { return t.IsPlaceholder; });
+            if (missing.length === 0) {
+                return;
+            }
+
+            var button = document.getElementById('pmkRequestMissingButton');
+            button.disabled = true;
+            button.textContent = 'Requesting…';
+
+            var seen = {};
+            var jobs = [];
+            missing.forEach(function (t) {
+                var artistName = (t.Artists && t.Artists[0]) || '';
+                if (!artistName) {
+                    return;
+                }
+                var albumName = t.Album || '';
+                var key = artistName.toLowerCase() + '|' + albumName.toLowerCase();
+                if (seen[key]) {
+                    return;
+                }
+                seen[key] = true;
+                jobs.push({ artistName: artistName, albumName: albumName });
+            });
+
+            var succeeded = 0;
+            var failed = 0;
+
+            function runJob(job) {
+                if (job.albumName) {
+                    return apiGet('/PlaylistMaker/MusicRequests/Albums/Search', { userId: state.userId, term: job.albumName })
+                        .then(function (albums) {
+                            var match = findBestAlbumMatch(albums, job.artistName, job.albumName);
+                            if (!match) {
+                                failed++;
+                                return;
+                            }
+                            return apiPost('/PlaylistMaker/MusicRequests/Albums', {
+                                UserId: state.userId,
+                                ForeignAlbumId: match.ForeignAlbumId,
+                                ArtistForeignArtistId: match.ArtistForeignArtistId,
+                                ArtistName: match.ArtistName,
+                                AlbumTitle: match.Title
+                            }).then(function () { succeeded++; }).catch(function () { failed++; });
+                        })
+                        .catch(function () { failed++; });
+                }
+
+                return apiGet('/PlaylistMaker/MusicRequests/Search', { userId: state.userId, term: job.artistName })
+                    .then(function (artists) {
+                        var match = findBestArtistMatch(artists, job.artistName);
+                        if (!match) {
+                            failed++;
+                            return;
+                        }
+                        return apiPost('/PlaylistMaker/MusicRequests', {
+                            UserId: state.userId,
+                            ForeignArtistId: match.ForeignArtistId,
+                            ArtistName: match.ArtistName
+                        }).then(function () { succeeded++; }).catch(function () { failed++; });
+                    })
+                    .catch(function () { failed++; });
+            }
+
+            var chain = Promise.resolve();
+            jobs.forEach(function (job) {
+                chain = chain.then(function () { return runJob(job); });
+            });
+
+            chain.then(function () {
+                button.disabled = false;
+                button.textContent = 'Request via Lidarr';
+                var summary = 'Requested ' + succeeded + ' of ' + jobs.length + ' missing release' + (jobs.length === 1 ? '' : 's') + ' via Lidarr.';
+                if (failed > 0) {
+                    summary += ' ' + failed + ' couldn’t be matched in Lidarr.';
+                }
+                showStatus(summary, succeeded === 0);
+            });
+        }
+
+        function findBestArtistMatch(artists, artistName) {
+            if (!artists || !artists.length) {
+                return null;
+            }
+            var normalized = normalizeForSearch(artistName);
+            var exact = artists.filter(function (a) { return normalizeForSearch(a.ArtistName) === normalized; });
+            return exact[0] || artists[0];
+        }
+
+        function findBestAlbumMatch(albums, artistName, albumName) {
+            if (!albums || !albums.length) {
+                return null;
+            }
+            var normalizedArtist = normalizeForSearch(artistName);
+            var normalizedAlbum = normalizeForSearch(albumName);
+            var exact = albums.filter(function (a) {
+                return normalizeForSearch(a.ArtistName) === normalizedArtist && normalizeForSearch(a.Title) === normalizedAlbum;
+            });
+            if (exact.length) {
+                return exact[0];
+            }
+            var artistMatch = albums.filter(function (a) { return normalizeForSearch(a.ArtistName) === normalizedArtist; });
+            return artistMatch[0] || null;
+        }
+
+        // Re-checks a playlist's previously-missing rows against the library (they may have been
+        // added since) - matched ones are added to the draft as real tracks, still-missing ones
+        // become placeholders again, and the persisted pending list is refreshed either way.
+        function resolvePendingImports(playlistId) {
+            return apiGet('/PlaylistMaker/PendingImports/' + playlistId, { userId: state.userId })
+                .then(function (pendingRows) {
+                    if (!pendingRows || pendingRows.length === 0) {
+                        return;
+                    }
+                    return apiPost('/PlaylistMaker/ImportMatch', { UserId: state.userId, Rows: pendingRows })
+                        .then(function (results) {
+                            var stillMissing = [];
+                            var resolvedCount = 0;
+                            (results || []).forEach(function (result) {
+                                if (result.MatchedTrack) {
+                                    if (!state.draft.some(function (t) { return t.Id === result.MatchedTrack.Id; })) {
+                                        state.draft.push(result.MatchedTrack);
+                                    }
+                                    resolvedCount++;
+                                } else {
+                                    stillMissing.push({
+                                        TrackName: result.TrackName,
+                                        ArtistName: result.ArtistName,
+                                        AlbumName: result.AlbumName,
+                                        DurationTicks: result.DurationTicks
+                                    });
+                                }
+                            });
+
+                            appendPlaceholders(stillMissing);
+
+                            if (resolvedCount > 0) {
+                                renderDraft();
+                                scheduleRecommendationRefresh(0);
+                                showStatus(
+                                    resolvedCount + ' previously-missing track' + (resolvedCount === 1 ? '' : 's') +
+                                    ' now found in your library — Save to update the playlist.',
+                                    false);
+                            } else {
+                                renderDraft();
+                            }
+
+                            return syncPendingImports(playlistId);
+                        });
+                })
+                .catch(function () { /* best-effort - a failed recheck just leaves placeholders as they were */ });
+        }
+
+        // Persists whichever placeholders are currently in the draft as the playlist's pending
+        // rows - called after every save so the stored list always matches exactly what's still
+        // outstanding, whether that's fewer (some got resolved) or the same as before.
+        function syncPendingImports(playlistId) {
+            var pending = state.draft
+                .filter(function (t) { return t.IsPlaceholder; })
+                .map(function (t) {
+                    return t.ImportRow || {
+                        TrackName: t.Name,
+                        ArtistName: (t.Artists && t.Artists[0]) || '',
+                        AlbumName: t.Album || null,
+                        DurationTicks: t.RunTimeTicks || null
+                    };
+                });
+            return apiPost('/PlaylistMaker/PendingImports/' + playlistId, { UserId: state.userId, Rows: pending })
+                .catch(function () { /* best-effort - missing-track placeholders just won't persist across reloads */ });
         }
 
         function showStatus(message, isError) {
@@ -2454,6 +2959,8 @@
                     showStatus('', false);
                 }
                 scheduleRecommendationRefresh(0);
+
+                return resolvePendingImports(playlistId);
             }).catch(function () {
                 showStatus('Could not load that playlist.', true);
             });
@@ -2469,7 +2976,7 @@
                 showStatus('Give your playlist a name first.', true);
                 return;
             }
-            if (state.draft.length === 0) {
+            if (draftIds().length === 0) {
                 showStatus('Add at least one track first.', true);
                 return;
             }
@@ -2505,13 +3012,15 @@
 
                 Promise.all(work).then(function () {
                     showStatus('Updated "' + name + '" — ' + state.draft.length + ' tracks.', false);
-                    return loadPlaylistPicker(state.editingPlaylistId).then(function () {
+                    return syncPendingImports(state.editingPlaylistId).then(function () {
+                        return loadPlaylistPicker(state.editingPlaylistId);
+                    }).then(function () {
                         return loadPlaylistForEditing(state.editingPlaylistId, state.editingPlaylistImageItemId, true);
                     });
                 }).catch(function () {
                     showStatus('Could not update playlist.', true);
                 }).finally(function () {
-                    saveButton.disabled = state.draft.length === 0;
+                    saveButton.disabled = draftIds().length === 0;
                 });
             } else {
                 apiPost('/PlaylistMaker/Playlists', {
@@ -2524,13 +3033,15 @@
                     // Re-fetch from the server rather than assuming the draft order round-tripped
                     // exactly, so state.loadedEntryIdByTrackId holds the real playlist entry ids -
                     // needed to remove specific tracks later.
-                    return loadPlaylistPicker(result.Id).then(function () {
+                    return syncPendingImports(result.Id).then(function () {
+                        return loadPlaylistPicker(result.Id);
+                    }).then(function () {
                         return loadPlaylistForEditing(result.Id, null, true);
                     });
                 }).catch(function () {
                     showStatus('Could not save playlist.', true);
                 }).finally(function () {
-                    saveButton.disabled = state.draft.length === 0;
+                    saveButton.disabled = draftIds().length === 0;
                 });
             }
         }
@@ -2881,6 +3392,9 @@
 
         function initRequestMusic() {
             apiGet('/PlaylistMaker/MusicRequests/Enabled').then(function (enabled) {
+                state.musicRequestsEnabled = !!enabled;
+                renderMissingBanner();
+
                 var panel = document.getElementById('pmkRequestMusicPanel');
                 panel.hidden = !enabled;
                 if (!enabled) {
@@ -3006,6 +3520,18 @@
                     closePlaylistMenu();
                 }
             });
+
+            document.getElementById('pmkImportButton').addEventListener('click', function () {
+                document.getElementById('pmkImportInput').click();
+            });
+            document.getElementById('pmkImportInput').addEventListener('change', function (e) {
+                var file = e.target.files && e.target.files[0];
+                if (file) {
+                    importPlaylistFromCsv(file);
+                }
+                e.target.value = '';
+            });
+            document.getElementById('pmkRequestMissingButton').addEventListener('click', requestAllMissing);
 
             document.getElementById('pmkCoverButton').addEventListener('click', function () {
                 document.getElementById('pmkCoverInput').click();

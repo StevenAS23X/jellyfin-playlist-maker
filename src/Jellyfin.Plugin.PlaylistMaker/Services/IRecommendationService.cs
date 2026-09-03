@@ -30,6 +30,16 @@ public interface IRecommendationService
     IReadOnlyList<ArtistDto> SearchArtists(Guid userId, string query, int limit);
 
     /// <summary>
+    /// Matches a batch of imported rows (e.g. from a CSV playlist export) against the library by
+    /// artist + title, using album/duration to disambiguate when a title matches more than one
+    /// release by the same artist.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="rows">The rows to match, in order.</param>
+    /// <returns>One result per row, in the same order, each either matched or not.</returns>
+    IReadOnlyList<TrackDto?> MatchImportRows(Guid userId, IReadOnlyList<ImportRowDto> rows);
+
+    /// <summary>
     /// Browses the user's music library by genre and/or artist, with no free-text query - used
     /// when a genre/artist chip is picked directly instead of typed search.
     /// </summary>

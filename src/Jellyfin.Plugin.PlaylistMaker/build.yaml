@@ -9,8 +9,20 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.13.0"
+version: "1.1.14.0"
 changelog: |
+  ## v1.1.14.0
+  - Add "Import CSV" to Your Playlist: import a playlist export (e.g. Exportify's Spotify CSV,
+    or any CSV with Track/Artist columns) and build a playlist from it. Matched tracks are added
+    automatically; anything not in your library yet shows as a "Missing" placeholder in the
+    draft instead of being silently dropped.
+  - Missing placeholders persist with the playlist across sessions: reopening an imported
+    playlist re-checks its still-missing rows against the library, automatically adding anything
+    that's since become available and re-showing the rest as placeholders.
+  - Add a "Request via Lidarr" button (shown when Lidarr is configured) that requests every
+    still-missing track's release in one action - by album when the CSV provided one, falling
+    back to the whole artist otherwise, deduplicated so the same release is only requested once.
+
   ## v1.1.13.0
   - Search now surfaces a single artist card (photo + name, click to open their album/singles
     browser) when the query matches an artist by name, instead of dumping every one of that

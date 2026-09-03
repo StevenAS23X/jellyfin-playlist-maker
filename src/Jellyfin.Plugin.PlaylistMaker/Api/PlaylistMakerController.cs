@@ -34,6 +34,7 @@ public class PlaylistMakerController : ControllerBase
     private readonly ILidarrService _lidarrService;
     private readonly IRequestRateLimiter _requestRateLimiter;
     private readonly ICustomRequestService _customRequestService;
+    private readonly IPendingImportService _pendingImportService;
     private readonly IUserManager _userManager;
     private readonly ILogger<PlaylistMakerController> _logger;
 
@@ -46,6 +47,7 @@ public class PlaylistMakerController : ControllerBase
     /// <param name="lidarrService">Instance of the <see cref="ILidarrService"/> interface.</param>
     /// <param name="requestRateLimiter">Instance of the <see cref="IRequestRateLimiter"/> interface.</param>
     /// <param name="customRequestService">Instance of the <see cref="ICustomRequestService"/> interface.</param>
+    /// <param name="pendingImportService">Instance of the <see cref="IPendingImportService"/> interface.</param>
     /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{PlaylistMakerController}"/> interface.</param>
     public PlaylistMakerController(
@@ -55,6 +57,7 @@ public class PlaylistMakerController : ControllerBase
         ILidarrService lidarrService,
         IRequestRateLimiter requestRateLimiter,
         ICustomRequestService customRequestService,
+        IPendingImportService pendingImportService,
         IUserManager userManager,
         ILogger<PlaylistMakerController> logger)
     {
@@ -64,6 +67,7 @@ public class PlaylistMakerController : ControllerBase
         _lidarrService = lidarrService;
         _requestRateLimiter = requestRateLimiter;
         _customRequestService = customRequestService;
+        _pendingImportService = pendingImportService;
         _userManager = userManager;
         _logger = logger;
     }
@@ -438,6 +442,88 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Matches a batch of imported rows (e.g. from a CSV playlist export) against the library, so
+    /// the importer can add whatever's already owned and show the rest as placeholders.
+    /// </summary>
+    /// <param name="request">The user id and rows to match.</param>
+    /// <returns>One result per row, in the same order.</returns>
+    [HttpPost("ImportMatch")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<ImportMatchResultDto>> MatchImport([FromBody] ImportMatchRequestDto request)
+    {
+        var matches = _recommendationService.MatchImportRows(request.UserId, request.Rows);
+
+        var results = request.Rows.Zip(matches, (row, matchedTrack) => new ImportMatchResultDto
+        {
+            TrackName = row.TrackName,
+            ArtistName = row.ArtistName,
+            AlbumName = row.AlbumName,
+            DurationTicks = row.DurationTicks,
+            MatchedTrack = matchedTrack
+        }).ToList();
+
+        return Ok(results);
+    }
+
+    /// <summary>
+    /// Gets a playlist's still-missing imported rows (placeholders shown last time it was saved),
+    /// so they can be re-checked against the library and shown again while it's being edited.
+    /// </summary>
+    /// <param name="playlistId">The playlist id.</param>
+    /// <param name="userId">The requesting user id.</param>
+    /// <returns>The playlist's pending rows.</returns>
+    [HttpGet("PendingImports/{playlistId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<IReadOnlyList<ImportRowDto>> GetPendingImports([FromRoute] Guid playlistId, [FromQuery] Guid userId)
+    {
+        var playlist = _playlistManager.GetPlaylistForUser(playlistId, userId);
+        if (playlist is null)
+        {
+            return NotFound();
+        }
+
+        var isPermitted = playlist.OpenAccess
+            || playlist.OwnerUserId.Equals(userId)
+            || playlist.Shares.Any(s => s.UserId.Equals(userId));
+        if (!isPermitted)
+        {
+            return Forbid();
+        }
+
+        return Ok(_pendingImportService.Get(playlistId));
+    }
+
+    /// <summary>
+    /// Replaces a playlist's still-missing imported rows - called after every save so the stored
+    /// list always matches exactly which placeholders are still outstanding in the draft.
+    /// </summary>
+    /// <param name="playlistId">The playlist id.</param>
+    /// <param name="request">The requesting user id and the rows still missing.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("PendingImports/{playlistId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult SetPendingImports([FromRoute] Guid playlistId, [FromBody] ImportMatchRequestDto request)
+    {
+        var playlist = _playlistManager.GetPlaylistForUser(playlistId, request.UserId);
+        if (playlist is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanEdit(playlist, request.UserId))
+        {
+            return Forbid();
+        }
+
+        _pendingImportService.Set(playlistId, request.Rows);
+        return NoContent();
+    }
+
+    /// <summary>
     /// Gets whether "Request Music" is available (Lidarr is configured), so the UI can hide the
     /// whole feature when it isn't set up.
     /// </summary>
@@ -468,12 +554,12 @@ public class PlaylistMakerController : ControllerBase
     {
         var results = await _lidarrService.SearchArtists(term, cancellationToken).ConfigureAwait(false);
         var ownedArtists = new HashSet<string>(
-            _recommendationService.GetArtists(userId).Select(NormalizeForMatch),
+            _recommendationService.GetArtists(userId).Select(TrackDtoMapper.NormalizeForMatch),
             StringComparer.Ordinal);
 
         foreach (var result in results)
         {
-            result.IsOwned = ownedArtists.Contains(NormalizeForMatch(result.ArtistName));
+            result.IsOwned = ownedArtists.Contains(TrackDtoMapper.NormalizeForMatch(result.ArtistName));
         }
 
         return Ok(results);
@@ -732,20 +818,8 @@ public class PlaylistMakerController : ControllerBase
             || playlist.Shares.Any(s => s.CanEdit && s.UserId.Equals(userId));
     }
 
-    // Strips everything but letters/digits before comparing, so a Lidarr result and a library tag
-    // that differ only in punctuation/casing (e.g. "Sam's Town" vs "Sams Town") still match.
-    private static string NormalizeForMatch(string? text)
-    {
-        if (string.IsNullOrEmpty(text))
-        {
-            return string.Empty;
-        }
-
-        return new string(text.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-    }
-
     private static string OwnedAlbumKey(string artist, string title)
     {
-        return NormalizeForMatch(artist) + "|" + NormalizeForMatch(title);
+        return TrackDtoMapper.NormalizeForMatch(artist) + "|" + TrackDtoMapper.NormalizeForMatch(title);
     }
 }

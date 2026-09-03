@@ -95,6 +95,24 @@ public static class TrackDtoMapper
         return (track.Name ?? string.Empty).Trim().ToLowerInvariant() + SongKeySeparator + artists;
     }
 
+    /// <summary>
+    /// Strips everything but letters/digits and lowercases, so two strings that differ only in
+    /// punctuation/casing (e.g. a Lidarr result vs. a library tag, or a CSV import row vs. a
+    /// library track title) still compare equal. Shared by the controller (Lidarr owned-item
+    /// matching) and import-row matching, which both need the exact same normalization.
+    /// </summary>
+    /// <param name="text">The text to normalize.</param>
+    /// <returns>The normalized text.</returns>
+    public static string NormalizeForMatch(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        return new string(text.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+    }
+
     private static Guid? ResolveImageItemId(Audio track)
     {
         if (track.AlbumEntity is not null && track.AlbumEntity.HasImage(ImageType.Primary, 0))
