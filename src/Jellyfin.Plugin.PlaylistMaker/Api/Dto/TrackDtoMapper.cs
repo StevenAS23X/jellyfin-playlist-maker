@@ -113,6 +113,47 @@ public static class TrackDtoMapper
         return new string(text.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
     }
 
+    /// <summary>
+    /// Truncates a title at the earliest "extra info" marker - a colon subtitle ("Song: The
+    /// Ballad of..."), a trailing " - " annotation ("Song - Remastered 2011"), or a parenthetical
+    /// ("Song (feat. Someone)", "Song (Live)") - then normalizes what's left. Used as a fallback
+    /// when an imported row's exact title doesn't match anything: streaming-service exports and
+    /// library file tags frequently disagree on exactly this kind of trailing annotation for the
+    /// same actual song, so a title that's an exact match up to one of these markers is treated as
+    /// the same song rather than reported as missing from the library.
+    /// </summary>
+    /// <param name="title">The title to canonicalize.</param>
+    /// <returns>The canonicalized, normalized title.</returns>
+    public static string CanonicalizeTitleForMatch(string? title)
+    {
+        if (string.IsNullOrEmpty(title))
+        {
+            return string.Empty;
+        }
+
+        var cut = title.Length;
+
+        var colonIndex = title.IndexOf(':');
+        if (colonIndex >= 0)
+        {
+            cut = Math.Min(cut, colonIndex);
+        }
+
+        var dashIndex = title.IndexOf(" - ", StringComparison.Ordinal);
+        if (dashIndex >= 0)
+        {
+            cut = Math.Min(cut, dashIndex);
+        }
+
+        var parenIndex = title.IndexOf('(');
+        if (parenIndex >= 0)
+        {
+            cut = Math.Min(cut, parenIndex);
+        }
+
+        return NormalizeForMatch(title.Substring(0, cut));
+    }
+
     private static Guid? ResolveImageItemId(Audio track)
     {
         if (track.AlbumEntity is not null && track.AlbumEntity.HasImage(ImageType.Primary, 0))

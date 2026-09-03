@@ -9,8 +9,17 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.15.0"
+version: "1.1.16.0"
 changelog: |
+  ## v1.1.16.0
+  - Fix CSV import falsely flagging owned tracks as missing when the imported title has trailing
+    "extra info" a library tag doesn't - a colon subtitle ("Song: The Ballad of..."), a "(feat.
+    X)"/"(Live)" parenthetical, or a "- Remastered 2011" suffix are common places a streaming
+    export and a library file's own tag disagree for what's actually the same song. Matching now
+    falls back to comparing titles truncated at the earliest such marker when the exact title
+    doesn't match anything, still scoped to the row's own artist so it can't cross-match a
+    different artist's song.
+
   ## v1.1.15.0
   - Playlists can now be saved with zero matched tracks, as long as at least one imported row is
     still missing - previously an import where nothing matched couldn't be saved at all, with

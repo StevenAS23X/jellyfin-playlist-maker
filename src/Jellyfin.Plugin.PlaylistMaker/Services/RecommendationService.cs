@@ -241,6 +241,22 @@ public class RecommendationService : IRecommendationService
             var titleKey = TrackDtoMapper.NormalizeForMatch(row.TrackName);
             var matches = candidates.Where(t => TrackDtoMapper.NormalizeForMatch(t.Name) == titleKey).ToList();
 
+            // Falls back to comparing titles truncated at a colon/dash/paren "extra info" marker
+            // when nothing matched exactly - streaming exports and library file tags frequently
+            // disagree on exactly that kind of trailing annotation (a subtitle, "(feat. X)", a
+            // "- Remastered" suffix) for what's otherwise the same song. Still scoped to this
+            // artist's own tracks, so it can't cross-match a different artist's song.
+            if (matches.Count == 0)
+            {
+                var canonicalRowTitle = TrackDtoMapper.CanonicalizeTitleForMatch(row.TrackName);
+                if (canonicalRowTitle.Length > 0)
+                {
+                    matches = candidates
+                        .Where(t => TrackDtoMapper.CanonicalizeTitleForMatch(t.Name) == canonicalRowTitle)
+                        .ToList();
+                }
+            }
+
             Audio? best = matches.Count switch
             {
                 0 => null,
