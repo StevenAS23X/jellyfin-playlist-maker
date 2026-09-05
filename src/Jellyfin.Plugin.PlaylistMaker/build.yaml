@@ -9,8 +9,18 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.17.0"
+version: "1.1.18.0"
 changelog: |
+  ## v1.1.18.0
+  - A missing track's "Search" link now searches YouTube Music for the whole album (Artist +
+    Album) instead of just the single track, when the imported CSV row named one - its URL can
+    be handed to MeTube as a playlist to grab every track from that album in one go, instead of
+    resolving one video at a time. Falls back to a track-only search when no album is known.
+  - "Request via Lidarr" now marks the outcome directly on each missing track: a track Lidarr
+    couldn't match gets highlighted in red with a "Not on Lidarr" badge (so it's obvious at a
+    glance which ones still need a manual MeTube download), and successfully requested ones get
+    a "Requested" badge.
+
   ## v1.1.17.0
   - The "Search" link on a missing playlist track now searches YouTube Music
     (music.youtube.com) instead of regular YouTube - favors official studio audio/albums over

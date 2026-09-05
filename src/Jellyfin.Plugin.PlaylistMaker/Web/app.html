@@ -796,6 +796,37 @@
             vertical-align: middle;
         }
 
+        /* Set after a bulk "Request via Lidarr" pass on whichever missing tracks it couldn't
+           match in Lidarr - overrides pmk-trackRowMissing's dimmer opacity so the red highlight
+           actually stands out instead of being muted along with the rest of the row. */
+        .pmk-trackRowLidarrFailed {
+            opacity: 0.9;
+            border-left: 3px solid #e0455b;
+            background: rgba(224, 69, 91, 0.08);
+        }
+
+        .pmk-lidarrFailedBadge {
+            display: inline-block;
+            margin-left: 0.5em;
+            padding: 0.05em 0.5em;
+            border-radius: 999px;
+            background: rgba(224, 69, 91, 0.3);
+            color: #fff;
+            font-size: 0.75em;
+            vertical-align: middle;
+        }
+
+        .pmk-lidarrRequestedBadge {
+            display: inline-block;
+            margin-left: 0.5em;
+            padding: 0.05em 0.5em;
+            border-radius: 999px;
+            background: rgba(63, 191, 95, 0.18);
+            color: #3fbf5f;
+            font-size: 0.75em;
+            vertical-align: middle;
+        }
+
         .pmk-recommendHeader {
             display: flex;
             align-items: center;
@@ -1792,6 +1823,15 @@
             return (artist ? artist + ' - ' : '') + (track.Name || '');
         }
 
+        // When the CSV row named an album, searching "Artist Album" instead of the single track
+        // lands on the actual album page - useful since yt-dlp (and MeTube, which is built on it)
+        // can take that album's URL as a playlist and grab every track from it in one go, instead
+        // of resolving one video at a time.
+        function metubeAlbumQuery(track) {
+            var artist = (track.Artists && track.Artists[0]) || '';
+            return (artist ? artist + ' ' : '') + (track.Album || '');
+        }
+
         // Copies text to the clipboard, falling back to the legacy execCommand approach when the
         // modern Clipboard API isn't available - notably on a plain-HTTP Jellyfin install (common
         // for a self-hosted LAN server), where navigator.clipboard is only exposed in secure
@@ -1832,7 +1872,9 @@
 
         function buildTrackRow(track, options) {
             var row = document.createElement('div');
-            row.className = 'pmk-trackRow' + (track.IsPlaceholder ? ' pmk-trackRowMissing' : '');
+            row.className = 'pmk-trackRow'
+                + (track.IsPlaceholder ? ' pmk-trackRowMissing' : '')
+                + (track.lidarrStatus === 'failed' ? ' pmk-trackRowLidarrFailed' : '');
 
             row.appendChild(buildTrackArt(track));
 
@@ -1847,6 +1889,21 @@
                 badge.className = 'pmk-missingBadge';
                 badge.textContent = 'Missing';
                 name.appendChild(badge);
+
+                // Set by requestAllMissing() after a bulk Lidarr request pass - lets you see at a
+                // glance which missing tracks still need a manual MeTube download versus which
+                // ones Lidarr is already chasing.
+                if (track.lidarrStatus === 'failed') {
+                    var lidarrBadge = document.createElement('span');
+                    lidarrBadge.className = 'pmk-lidarrFailedBadge';
+                    lidarrBadge.textContent = 'Not on Lidarr';
+                    name.appendChild(lidarrBadge);
+                } else if (track.lidarrStatus === 'requested') {
+                    var lidarrRequestedBadge = document.createElement('span');
+                    lidarrRequestedBadge.className = 'pmk-lidarrRequestedBadge';
+                    lidarrRequestedBadge.textContent = 'Requested';
+                    name.appendChild(lidarrRequestedBadge);
+                }
             }
             info.appendChild(name);
 
@@ -1873,15 +1930,18 @@
             // itself by searching regular YouTube and grabbing the top result, so no separate
             // search-and-copy step needed for anyone who trusts the top hit.
             if (track.IsPlaceholder) {
-                var query = metubeSearchQuery(track);
+                var hasAlbum = !!track.Album;
+                var query = hasAlbum ? metubeAlbumQuery(track) : metubeSearchQuery(track);
 
                 var searchLink = document.createElement('a');
                 searchLink.className = 'pmk-trackAction';
                 searchLink.href = 'https://music.youtube.com/search?q=' + encodeURIComponent(query);
                 searchLink.target = '_blank';
                 searchLink.rel = 'noopener noreferrer';
-                searchLink.title = 'Search YouTube Music for this track';
-                searchLink.textContent = 'Search';
+                searchLink.title = hasAlbum
+                    ? 'Search YouTube Music for this album (its URL can be handed to MeTube as a playlist to grab every track)'
+                    : 'Search YouTube Music for this track';
+                searchLink.textContent = hasAlbum ? 'Search Album' : 'Search';
                 searchLink.addEventListener('click', function (e) { e.stopPropagation(); });
                 actions.appendChild(searchLink);
 
@@ -2334,24 +2394,34 @@
             button.disabled = true;
             button.textContent = 'Requesting…';
 
-            var seen = {};
-            var jobs = [];
+            // Grouped by (artist, album) so a job's outcome can be stamped back onto every track
+            // that shares it - tracks[] is what makes that possible, alongside the usual
+            // dedup-so-the-same-release-isn't-requested-twice behavior.
+            var groups = {};
             missing.forEach(function (t) {
                 var artistName = (t.Artists && t.Artists[0]) || '';
                 if (!artistName) {
+                    // Nothing to search Lidarr with at all - mark it failed immediately rather
+                    // than silently skipping it, so it still gets flagged for the MeTube fallback.
+                    t.lidarrStatus = 'failed';
                     return;
                 }
                 var albumName = t.Album || '';
                 var key = artistName.toLowerCase() + '|' + albumName.toLowerCase();
-                if (seen[key]) {
-                    return;
+                if (!groups[key]) {
+                    groups[key] = { artistName: artistName, albumName: albumName, tracks: [] };
                 }
-                seen[key] = true;
-                jobs.push({ artistName: artistName, albumName: albumName });
+                groups[key].tracks.push(t);
+                t.lidarrStatus = 'pending';
             });
 
+            var jobs = Object.keys(groups).map(function (key) { return groups[key]; });
             var succeeded = 0;
             var failed = 0;
+
+            function applyOutcome(job, status) {
+                job.tracks.forEach(function (t) { t.lidarrStatus = status; });
+            }
 
             function runJob(job) {
                 if (job.albumName) {
@@ -2360,6 +2430,7 @@
                             var match = findBestAlbumMatch(albums, job.artistName, job.albumName);
                             if (!match) {
                                 failed++;
+                                applyOutcome(job, 'failed');
                                 return;
                             }
                             return apiPost('/PlaylistMaker/MusicRequests/Albums', {
@@ -2368,9 +2439,18 @@
                                 ArtistForeignArtistId: match.ArtistForeignArtistId,
                                 ArtistName: match.ArtistName,
                                 AlbumTitle: match.Title
-                            }).then(function () { succeeded++; }).catch(function () { failed++; });
+                            }).then(function () {
+                                succeeded++;
+                                applyOutcome(job, 'requested');
+                            }).catch(function () {
+                                failed++;
+                                applyOutcome(job, 'failed');
+                            });
                         })
-                        .catch(function () { failed++; });
+                        .catch(function () {
+                            failed++;
+                            applyOutcome(job, 'failed');
+                        });
                 }
 
                 return apiGet('/PlaylistMaker/MusicRequests/Search', { userId: state.userId, term: job.artistName })
@@ -2378,15 +2458,25 @@
                         var match = findBestArtistMatch(artists, job.artistName);
                         if (!match) {
                             failed++;
+                            applyOutcome(job, 'failed');
                             return;
                         }
                         return apiPost('/PlaylistMaker/MusicRequests', {
                             UserId: state.userId,
                             ForeignArtistId: match.ForeignArtistId,
                             ArtistName: match.ArtistName
-                        }).then(function () { succeeded++; }).catch(function () { failed++; });
+                        }).then(function () {
+                            succeeded++;
+                            applyOutcome(job, 'requested');
+                        }).catch(function () {
+                            failed++;
+                            applyOutcome(job, 'failed');
+                        });
                     })
-                    .catch(function () { failed++; });
+                    .catch(function () {
+                        failed++;
+                        applyOutcome(job, 'failed');
+                    });
             }
 
             var chain = Promise.resolve();
@@ -2397,9 +2487,10 @@
             chain.then(function () {
                 button.disabled = false;
                 button.textContent = 'Request via Lidarr';
+                renderDraft();
                 var summary = 'Requested ' + succeeded + ' of ' + jobs.length + ' missing release' + (jobs.length === 1 ? '' : 's') + ' via Lidarr.';
                 if (failed > 0) {
-                    summary += ' ' + failed + ' couldn’t be matched in Lidarr.';
+                    summary += ' ' + failed + ' couldn’t be matched in Lidarr (highlighted in red).';
                 }
                 showStatus(summary, succeeded === 0);
             });
