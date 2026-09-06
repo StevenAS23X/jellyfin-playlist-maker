@@ -9,8 +9,16 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.20.0"
+version: "1.1.21.0"
 changelog: |
+  ## v1.1.21.0
+  - Fix track/artist/album cover art sometimes showing the browser's generic broken-image icon
+    instead of anything the app controls - a stale library image cache, a file removed/moved on
+    disk, or a still-in-progress metadata refresh right after import can all make an item that
+    "has a cover" 404 when actually fetched. Every cover image (tracks, artists, albums, playlist
+    cover, Lidarr request results) now falls back to the app's own placeholder icon when the image
+    itself fails to load, the same way it already did when there was no image at all.
+
   ## v1.1.20.0
   - Your Playlist tracks can now be dragged and dropped to reorder them, like Spotify's playlist
     editor - grab the grip handle on the left of a row and drop it where you want it. Added

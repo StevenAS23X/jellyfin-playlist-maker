@@ -1613,6 +1613,35 @@
             return url;
         }
 
+        function appendNote(container) {
+            var note = document.createElement('span');
+            note.textContent = '♪';
+            container.appendChild(note);
+        }
+
+        // Appends the item's Primary image as an <img>, falling back to onError (or the ♪ note,
+        // by default) both when there's no image id at all and when the image URL itself fails to
+        // load - a stale library image cache, a file that's been deleted/moved on disk, or a
+        // still-in-progress metadata refresh right after import can all make an id that "has an
+        // image" 404 anyway. Without the error handler, a failed <img> load just leaves the
+        // browser's own broken-image icon showing, which looks like the app is broken.
+        function appendArt(container, itemId, cacheBust, onError) {
+            var url = imageUrl(itemId, cacheBust);
+            if (!url) {
+                if (onError) { onError(); } else { appendNote(container); }
+                return;
+            }
+            var img = document.createElement('img');
+            img.alt = '';
+            img.loading = 'lazy';
+            img.addEventListener('error', function () {
+                img.remove();
+                if (onError) { onError(); } else { appendNote(container); }
+            });
+            img.src = url;
+            container.appendChild(img);
+        }
+
         function audioUrl(itemId) {
             return '/Audio/' + itemId + '/stream?static=true&api_key=' + encodeURIComponent(state.token);
         }
@@ -1651,13 +1680,7 @@
 
             var artEl = document.getElementById('pmkNowPlayingArt');
             clearChildren(artEl);
-            var url = imageUrl(track.ImageItemId);
-            if (url) {
-                var img = document.createElement('img');
-                img.src = url;
-                img.alt = '';
-                artEl.appendChild(img);
-            }
+            appendArt(artEl, track.ImageItemId, null, function () { /* leave blank, as before */ });
 
             document.getElementById('pmkNowPlayingName').textContent = track.Name;
             document.getElementById('pmkNowPlayingMeta').textContent = trackMetaText(track);
@@ -1787,18 +1810,7 @@
             art.dataset.trackId = track.Id;
             art.title = isPlaying ? 'Pause' : 'Play preview';
 
-            var url = imageUrl(track.ImageItemId);
-            if (url) {
-                var img = document.createElement('img');
-                img.src = url;
-                img.alt = '';
-                img.loading = 'lazy';
-                art.appendChild(img);
-            } else {
-                var note = document.createElement('span');
-                note.textContent = '♪';
-                art.appendChild(note);
-            }
+            appendArt(art, track.ImageItemId);
 
             var playIcon = document.createElement('span');
             playIcon.className = 'pmk-trackArtPlayIcon';
@@ -2216,15 +2228,9 @@
             }
             button.hidden = false;
             clearChildren(button);
-            var url = imageUrl(state.editingPlaylistImageItemId, state.editingPlaylistImageVersion);
-            if (url) {
-                var img = document.createElement('img');
-                img.src = url;
-                img.alt = '';
-                button.appendChild(img);
-            } else {
+            appendArt(button, state.editingPlaylistImageItemId, state.editingPlaylistImageVersion, function () {
                 button.textContent = 'Add cover';
-            }
+            });
         }
 
         function renderDraft() {
@@ -2816,18 +2822,7 @@
 
             var art = document.createElement('div');
             art.className = 'pmk-trackArt pmk-artistResultArt';
-            var url = imageUrl(artist.ImageItemId);
-            if (url) {
-                var img = document.createElement('img');
-                img.src = url;
-                img.alt = '';
-                img.loading = 'lazy';
-                art.appendChild(img);
-            } else {
-                var note = document.createElement('span');
-                note.textContent = '♪';
-                art.appendChild(note);
-            }
+            appendArt(art, artist.ImageItemId);
             row.appendChild(art);
 
             var info = document.createElement('div');
@@ -2897,18 +2892,7 @@
 
             var art = document.createElement('div');
             art.className = 'pmk-trackArt';
-            var url = imageUrl(album.ImageItemId);
-            if (url) {
-                var img = document.createElement('img');
-                img.src = url;
-                img.alt = '';
-                img.loading = 'lazy';
-                art.appendChild(img);
-            } else {
-                var note = document.createElement('span');
-                note.textContent = '♪';
-                art.appendChild(note);
-            }
+            appendArt(art, album.ImageItemId);
             row.appendChild(art);
 
             var info = document.createElement('div');
@@ -3468,20 +3452,31 @@
                 });
         }
 
+        function appendRequestArtPlaceholder(art) {
+            var placeholder = document.createElement('span');
+            placeholder.className = 'pmk-requestArtPlaceholder';
+            placeholder.textContent = '♪';
+            art.appendChild(placeholder);
+        }
+
         function buildRequestArt(imageUrl) {
             var art = document.createElement('div');
             art.className = 'pmk-requestArt';
             if (imageUrl) {
                 var img = document.createElement('img');
-                img.src = imageUrl;
                 img.alt = '';
                 img.loading = 'lazy';
+                // Lidarr's own image source (fanart.tv, etc.) can 404 even when Lidarr reports a
+                // URL, same class of issue as a stale/missing Jellyfin library image - fall back
+                // to the placeholder instead of a browser broken-image icon.
+                img.addEventListener('error', function () {
+                    img.remove();
+                    appendRequestArtPlaceholder(art);
+                });
+                img.src = imageUrl;
                 art.appendChild(img);
             } else {
-                var placeholder = document.createElement('span');
-                placeholder.className = 'pmk-requestArtPlaceholder';
-                placeholder.textContent = '♪';
-                art.appendChild(placeholder);
+                appendRequestArtPlaceholder(art);
             }
             return art;
         }
