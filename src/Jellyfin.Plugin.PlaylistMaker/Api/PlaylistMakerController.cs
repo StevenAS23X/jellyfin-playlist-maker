@@ -328,6 +328,34 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Moves a track to a new position within an existing playlist, for reordering.
+    /// </summary>
+    /// <param name="playlistId">The playlist id.</param>
+    /// <param name="request">The requesting user id, the entry id to move, and its new index.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("Playlists/{playlistId}/Items/Move")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> MovePlaylistItem([FromRoute] Guid playlistId, [FromBody] MoveItemRequestDto request)
+    {
+        var playlist = _playlistManager.GetPlaylistForUser(playlistId, request.UserId);
+        if (playlist is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanEdit(playlist, request.UserId))
+        {
+            return Forbid();
+        }
+
+        await _playlistManager.MoveItemAsync(playlistId.ToString(), request.EntryId, request.NewIndex, request.UserId)
+            .ConfigureAwait(false);
+        return NoContent();
+    }
+
+    /// <summary>
     /// Renames an existing playlist.
     /// </summary>
     /// <param name="playlistId">The playlist id.</param>

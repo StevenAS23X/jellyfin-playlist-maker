@@ -9,8 +9,15 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.18.0"
+version: "1.1.19.0"
 changelog: |
+  ## v1.1.19.0
+  - Add track reordering to Your Playlist: move-up/move-down buttons on each track let you fix
+    the order without removing and re-adding anything. For a playlist you're editing, order
+    changes are saved back to Jellyfin via its own playlist-reorder API. Note: a track newly
+    added in the same save still lands at the end of the playlist (existing add behavior) - only
+    the order of tracks that were already in the playlist is guaranteed to match what you see.
+
   ## v1.1.18.0
   - A missing track's "Search" link now searches YouTube Music for the whole album (Artist +
     Album) instead of just the single track, when the imported CSV row named one - its URL can

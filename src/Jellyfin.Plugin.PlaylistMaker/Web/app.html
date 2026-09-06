@@ -585,6 +585,8 @@
         .pmk-trackActions {
             flex-shrink: 0;
             display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
             align-items: center;
             gap: 0.35em;
         }
@@ -612,6 +614,18 @@
         .pmk-trackAction.pmk-removeAction:hover {
             border-color: #e0455b;
             color: #e0455b;
+        }
+
+        .pmk-trackAction:disabled {
+            opacity: 0.3;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .pmk-moveButton {
+            padding: 0.35em 0.55em;
+            font-size: 0.75em;
+            line-height: 1;
         }
 
         .pmk-empty {
@@ -1870,7 +1884,7 @@
             }
         }
 
-        function buildTrackRow(track, options) {
+        function buildTrackRow(track, options, index, total) {
             var row = document.createElement('div');
             row.className = 'pmk-trackRow'
                 + (track.IsPlaceholder ? ' pmk-trackRowMissing' : '')
@@ -1957,6 +1971,35 @@
                 actions.appendChild(copyButton);
             }
 
+            // Reordering (Your Playlist only, via options.reorderable) just swaps entries in the
+            // local draft array and re-renders - the actual server-side reorder of an
+            // already-saved playlist's tracks happens once, on Save, not per click.
+            if (options.reorderable) {
+                var moveUp = document.createElement('button');
+                moveUp.type = 'button';
+                moveUp.className = 'pmk-trackAction pmk-moveButton';
+                moveUp.title = 'Move up';
+                moveUp.textContent = '▲';
+                moveUp.disabled = index === 0;
+                moveUp.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    options.onMove(index, -1);
+                });
+                actions.appendChild(moveUp);
+
+                var moveDown = document.createElement('button');
+                moveDown.type = 'button';
+                moveDown.className = 'pmk-trackAction pmk-moveButton';
+                moveDown.title = 'Move down';
+                moveDown.textContent = '▼';
+                moveDown.disabled = index === total - 1;
+                moveDown.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    options.onMove(index, 1);
+                });
+                actions.appendChild(moveDown);
+            }
+
             var action = document.createElement('button');
             action.type = 'button';
             action.className = 'pmk-trackAction' + (options.remove ? ' pmk-removeAction' : '');
@@ -1979,8 +2022,8 @@
                 container.appendChild(empty);
                 return;
             }
-            tracks.forEach(function (track) {
-                container.appendChild(buildTrackRow(track, options));
+            tracks.forEach(function (track, index) {
+                container.appendChild(buildTrackRow(track, options, index, tracks.length));
             });
         }
 
@@ -2103,8 +2146,10 @@
 
             renderList(listEl, state.draft, {
                 remove: true,
+                reorderable: true,
                 emptyText: 'Add tracks from Search or Recommended to build your playlist.',
-                onClick: function (track) { removeFromDraft(track.Id); }
+                onClick: function (track) { removeFromDraft(track.Id); },
+                onMove: function (index, direction) { moveDraftTrack(index, direction); }
             });
 
             var totalTicks = state.draft.reduce(function (sum, t) { return sum + (t.RunTimeTicks || 0); }, 0);
@@ -2160,6 +2205,20 @@
             state.draft = state.draft.filter(function (t) { return t.Id !== id; });
             renderDraft();
             scheduleRecommendationRefresh(0);
+        }
+
+        // Swaps a track with its neighbor in the local draft order. The actual server-side
+        // reorder of an already-saved playlist's tracks is computed and sent once, on Save (see
+        // applyReorder) - not per click, since each swap here is purely a local list edit.
+        function moveDraftTrack(index, direction) {
+            var target = index + direction;
+            if (target < 0 || target >= state.draft.length) {
+                return;
+            }
+            var temp = state.draft[index];
+            state.draft[index] = state.draft[target];
+            state.draft[target] = temp;
+            renderDraft();
         }
 
         // Minimal RFC4180-ish CSV parser (quoted fields, embedded commas/newlines, "" escaping) -
@@ -2585,6 +2644,36 @@
                 });
             return apiPost('/PlaylistMaker/PendingImports/' + playlistId, { UserId: state.userId, Rows: pending })
                 .catch(function () { /* best-effort - missing-track placeholders just won't persist across reloads */ });
+        }
+
+        // Reorders whichever of currentIds were already saved in this playlist (added/removed
+        // tracks are handled separately in savePlaylist) so the final order on the server matches
+        // the draft. Position is computed among just those already-saved tracks - a track added
+        // in this same save has no entry id yet and simply lands wherever AddItemToPlaylistAsync
+        // puts it (the end); reorder it properly on a later edit once it has one. Moves run
+        // sequentially, one entry id at a time, since each move shifts the others' indices.
+        function applyReorder(playlistId, currentIds) {
+            var moves = [];
+            var index = 0;
+            currentIds.forEach(function (id) {
+                var entryId = state.loadedEntryIdByTrackId[id];
+                if (entryId) {
+                    moves.push({ entryId: entryId, newIndex: index });
+                    index++;
+                }
+            });
+
+            var chain = Promise.resolve();
+            moves.forEach(function (move) {
+                chain = chain.then(function () {
+                    return apiPost('/PlaylistMaker/Playlists/' + playlistId + '/Items/Move', {
+                        UserId: state.userId,
+                        EntryId: move.entryId,
+                        NewIndex: move.newIndex
+                    });
+                });
+            });
+            return chain;
         }
 
         function showStatus(message, isError) {
@@ -3220,6 +3309,8 @@
                 }
 
                 Promise.all(work).then(function () {
+                    return applyReorder(state.editingPlaylistId, currentIds);
+                }).then(function () {
                     showStatus('Updated "' + name + '" — ' + draftSummaryText() + '.', false);
                     return syncPendingImports(state.editingPlaylistId).then(function () {
                         return loadPlaylistPicker(state.editingPlaylistId);
