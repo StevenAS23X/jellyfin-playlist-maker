@@ -628,6 +628,29 @@
             line-height: 1;
         }
 
+        .pmk-dragHandle {
+            flex-shrink: 0;
+            width: 1.4em;
+            text-align: center;
+            color: #999;
+            cursor: grab;
+            font-size: 1.1em;
+            line-height: 1;
+            touch-action: none;
+        }
+
+        .pmk-dragHandle:hover {
+            color: rgba(0, 164, 220, 0.9);
+        }
+
+        .pmk-trackRowDragging {
+            opacity: 0.4;
+        }
+
+        .pmk-trackRowDragOver {
+            border-top: 2px solid rgba(0, 164, 220, 0.9);
+        }
+
         .pmk-empty {
             color: #999;
             font-size: 0.9em;
@@ -1890,6 +1913,47 @@
                 + (track.IsPlaceholder ? ' pmk-trackRowMissing' : '')
                 + (track.lidarrStatus === 'failed' ? ' pmk-trackRowLidarrFailed' : '');
 
+            // Drag-and-drop reordering (Your Playlist only, via options.reorderable): the grip
+            // handle is the only draggable element (buttons/links elsewhere in the row stay
+            // click-only), and the whole row is the drop target so dropping anywhere on a row
+            // moves the dragged track to that row's position.
+            if (options.reorderable) {
+                var handle = document.createElement('span');
+                handle.className = 'pmk-dragHandle';
+                handle.title = 'Drag to reorder';
+                handle.textContent = '⠿';
+                handle.draggable = true;
+                handle.addEventListener('dragstart', function (e) {
+                    e.stopPropagation();
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(index));
+                    try { e.dataTransfer.setDragImage(row, 0, 0); } catch (err) { /* unsupported */ }
+                    row.classList.add('pmk-trackRowDragging');
+                });
+                handle.addEventListener('dragend', function (e) {
+                    e.stopPropagation();
+                    row.classList.remove('pmk-trackRowDragging');
+                });
+                row.appendChild(handle);
+
+                row.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    row.classList.add('pmk-trackRowDragOver');
+                });
+                row.addEventListener('dragleave', function () {
+                    row.classList.remove('pmk-trackRowDragOver');
+                });
+                row.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    row.classList.remove('pmk-trackRowDragOver');
+                    var fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                    if (!isNaN(fromIndex)) {
+                        options.onMoveTo(fromIndex, index);
+                    }
+                });
+            }
+
             row.appendChild(buildTrackArt(track));
 
             var info = document.createElement('div');
@@ -1971,10 +2035,22 @@
                 actions.appendChild(copyButton);
             }
 
-            // Reordering (Your Playlist only, via options.reorderable) just swaps entries in the
-            // local draft array and re-renders - the actual server-side reorder of an
-            // already-saved playlist's tracks happens once, on Save, not per click.
+            // Reordering (Your Playlist only, via options.reorderable) just moves the entry
+            // within the local draft array and re-renders - the actual server-side reorder of an
+            // already-saved playlist's tracks happens once, on Save, not per click/drop.
             if (options.reorderable) {
+                var moveTop = document.createElement('button');
+                moveTop.type = 'button';
+                moveTop.className = 'pmk-trackAction pmk-moveButton';
+                moveTop.title = 'Move to top';
+                moveTop.textContent = '⤒';
+                moveTop.disabled = index === 0;
+                moveTop.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    options.onMoveTo(index, 0);
+                });
+                actions.appendChild(moveTop);
+
                 var moveUp = document.createElement('button');
                 moveUp.type = 'button';
                 moveUp.className = 'pmk-trackAction pmk-moveButton';
@@ -1983,7 +2059,7 @@
                 moveUp.disabled = index === 0;
                 moveUp.addEventListener('click', function (e) {
                     e.stopPropagation();
-                    options.onMove(index, -1);
+                    options.onMoveTo(index, index - 1);
                 });
                 actions.appendChild(moveUp);
 
@@ -1995,9 +2071,21 @@
                 moveDown.disabled = index === total - 1;
                 moveDown.addEventListener('click', function (e) {
                     e.stopPropagation();
-                    options.onMove(index, 1);
+                    options.onMoveTo(index, index + 1);
                 });
                 actions.appendChild(moveDown);
+
+                var moveBottom = document.createElement('button');
+                moveBottom.type = 'button';
+                moveBottom.className = 'pmk-trackAction pmk-moveButton';
+                moveBottom.title = 'Move to bottom';
+                moveBottom.textContent = '⤓';
+                moveBottom.disabled = index === total - 1;
+                moveBottom.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    options.onMoveTo(index, total - 1);
+                });
+                actions.appendChild(moveBottom);
             }
 
             var action = document.createElement('button');
@@ -2149,7 +2237,7 @@
                 reorderable: true,
                 emptyText: 'Add tracks from Search or Recommended to build your playlist.',
                 onClick: function (track) { removeFromDraft(track.Id); },
-                onMove: function (index, direction) { moveDraftTrack(index, direction); }
+                onMoveTo: function (fromIndex, toIndex) { moveDraftTrackTo(fromIndex, toIndex); }
             });
 
             var totalTicks = state.draft.reduce(function (sum, t) { return sum + (t.RunTimeTicks || 0); }, 0);
@@ -2207,17 +2295,20 @@
             scheduleRecommendationRefresh(0);
         }
 
-        // Swaps a track with its neighbor in the local draft order. The actual server-side
-        // reorder of an already-saved playlist's tracks is computed and sent once, on Save (see
-        // applyReorder) - not per click, since each swap here is purely a local list edit.
-        function moveDraftTrack(index, direction) {
-            var target = index + direction;
-            if (target < 0 || target >= state.draft.length) {
+        // Moves a track to an arbitrary position in the local draft order (drag-and-drop, and the
+        // top/up/down/bottom buttons all funnel through this). The actual server-side reorder of
+        // an already-saved playlist's tracks is computed and sent once, on Save (see
+        // applyReorder) - not per drag/click, since this is purely a local list edit.
+        function moveDraftTrackTo(fromIndex, toIndex) {
+            if (fromIndex < 0 || fromIndex >= state.draft.length) {
                 return;
             }
-            var temp = state.draft[index];
-            state.draft[index] = state.draft[target];
-            state.draft[target] = temp;
+            toIndex = Math.max(0, Math.min(state.draft.length - 1, toIndex));
+            if (fromIndex === toIndex) {
+                return;
+            }
+            var item = state.draft.splice(fromIndex, 1)[0];
+            state.draft.splice(toIndex, 0, item);
             renderDraft();
         }
 

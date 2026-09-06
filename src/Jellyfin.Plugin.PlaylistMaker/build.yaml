@@ -9,8 +9,14 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.19.0"
+version: "1.1.20.0"
 changelog: |
+  ## v1.1.20.0
+  - Your Playlist tracks can now be dragged and dropped to reorder them, like Spotify's playlist
+    editor - grab the grip handle on the left of a row and drop it where you want it. Added
+    move-to-top/move-to-bottom buttons alongside the existing move-up/move-down buttons for
+    precise single-click moves without dragging.
+
   ## v1.1.19.0
   - Add track reordering to Your Playlist: move-up/move-down buttons on each track let you fix
     the order without removing and re-adding anything. For a playlist you're editing, order
