@@ -1,7 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!--
+      Multi-targeted so the same source tree/DLL-name builds two separate plugin artifacts, one
+      per Jellyfin major line - jprm's packaging (see publish-repo.yml / publish-repo-jf12.yml)
+      builds each TargetFramework separately via `dotnet build --framework <tfm>`, which works
+      fine against a <TargetFrameworks> (plural) project since dotnet just picks that one TFM's
+      dependency graph. net9.0 is Jellyfin 10.11.x/11.x's host runtime; net10.0 is Jellyfin 12's
+      (confirmed via each version's Jellyfin.Controller nuspec, which only ships a lib group for
+      its own runtime - loading a DLL built for the other one is a genuine ABI break, the same
+      class of TypeLoadException/MissingMethodException seen when 10.11 moved .NET 8 -> .NET 9).
+    -->
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Jellyfin.Plugin.PlaylistMaker</RootNamespace>
@@ -10,24 +20,18 @@
     <WarningsAsErrors>false</WarningsAsErrors>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!--
-      Version and TargetFramework above must match the actual server. Jellyfin 10.11.x moved its
-      host process from .NET 8 to .NET 9 (confirmed via the Jellyfin.Controller 10.11.x nuspec,
-      which only ships a net9.0 lib group) - that's the real cause of the
-      TypeLoadException/MissingMethodException on types like Jellyfin.Data.Entities.User seen
-      when this plugin was compiled for net8.0/10.9.*: the plugin DLL was being loaded into a
-      .NET 9 host process, a genuine runtime ABI break, not just a NuGet version mismatch.
-      ExcludeAssets="runtime" keeps `dotnet publish` from copying the host's own assemblies into
-      this plugin's output folder so only the host's copies are ever loaded.
-
-      As of 10.11.x the User entity also moved out of the Jellyfin.Data package into its own
-      Jellyfin.Database.Implementations package (namespace Jellyfin.Database.Implementations.Entities),
-      confirmed against the actual v10.11.11 server source - Jellyfin.Controller's own nuspec no
-      longer pulls it in transitively, so it must be referenced directly.
-    -->
+  <!--
+    ExcludeAssets="runtime" on both keeps `dotnet publish` from copying the host's own assemblies
+    into this plugin's output folder, so only the host's own copies are ever loaded at runtime.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <PackageReference Include="Jellyfin.Controller" Version="10.11.*" ExcludeAssets="runtime" />
     <PackageReference Include="Jellyfin.Database.Implementations" Version="10.11.*" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Jellyfin.Controller" Version="12.0.*" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Database.Implementations" Version="12.0.*" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>

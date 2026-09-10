@@ -17,18 +17,34 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: |
+            9.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore src/Jellyfin.Plugin.PlaylistMaker/Jellyfin.Plugin.PlaylistMaker.csproj
 
-      - name: Build
-        run: dotnet build src/Jellyfin.Plugin.PlaylistMaker/Jellyfin.Plugin.PlaylistMaker.csproj --configuration Release --no-restore
+      # Multi-targeted: net9.0 for Jellyfin 10.11.x/11.x, net10.0 for Jellyfin 12+ (see the
+      # csproj comment). Built separately with --framework since jprm packages one TFM at a time
+      # too - this mirrors exactly what publish-repo.yml / publish-repo-jf12.yml each do.
+      - name: Build (net9.0 - Jellyfin 10.11.x/11.x)
+        run: dotnet build src/Jellyfin.Plugin.PlaylistMaker/Jellyfin.Plugin.PlaylistMaker.csproj --configuration Release --framework net9.0 --no-restore
 
-      - name: Publish artifact
+      - name: Build (net10.0 - Jellyfin 12+)
+        run: dotnet build src/Jellyfin.Plugin.PlaylistMaker/Jellyfin.Plugin.PlaylistMaker.csproj --configuration Release --framework net10.0 --no-restore
+
+      - name: Publish artifact (net9.0)
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Jellyfin.Plugin.PlaylistMaker
+          name: Jellyfin.Plugin.PlaylistMaker-net9.0
           path: src/Jellyfin.Plugin.PlaylistMaker/bin/Release/net9.0/Jellyfin.Plugin.PlaylistMaker.dll
+          if-no-files-found: error
+
+      - name: Publish artifact (net10.0)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jellyfin.Plugin.PlaylistMaker-net10.0
+          path: src/Jellyfin.Plugin.PlaylistMaker/bin/Release/net10.0/Jellyfin.Plugin.PlaylistMaker.dll
           if-no-files-found: error
