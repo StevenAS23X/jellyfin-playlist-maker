@@ -1,0 +1,66 @@
+name: Auto-tag release (Jellyfin 12 track)
+
+# Same pattern as auto-tag.yml, watching build.jf12.yaml instead of build.yaml. Tags are
+# prefixed "jf12-v" (not "v") so they can never match publish-repo.yml's `tags: v*` trigger -
+# that workflow must never build this track's version number with the net9.0/10.x framework
+# (see build.jf12.yaml's own comment for why the two tracks' version numbers must stay
+# partitioned).
+
+on:
+  push:
+    branches:
+      - claude/jellyfin-playlist-recommendations-mw7bkr
+    paths:
+      - 'src/Jellyfin.Plugin.PlaylistMaker/build.jf12.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from build.jf12.yaml
+        id: version
+        run: |
+          version=$(grep -m1 '^version:' src/Jellyfin.Plugin.PlaylistMaker/build.jf12.yaml | sed -E 's/version:\s*"([^"]+)"/\1/')
+          if [ -z "$version" ]; then
+            echo "::error::Could not parse version from build.jf12.yaml"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Tag and push if new
+        id: tag
+        run: |
+          tag="jf12-v${{ steps.version.outputs.version }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists, nothing to do."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$tag"
+          git push origin "$tag"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      # A push made with the workflow's own GITHUB_TOKEN does not trigger other workflows'
+      # `on: push` triggers (GitHub's anti-recursion guard) - so the tag above landed, but
+      # publish-repo-jf12's `push: tags: jf12-v*` trigger never fired for it. Dispatch it
+      # explicitly instead, targeting the new tag as the ref so it builds/packages that exact
+      # version.
+      - name: Trigger publish-repo-jf12 for the new tag
+        if: steps.tag.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run publish-repo-jf12.yml --ref "${{ steps.tag.outputs.tag }}"

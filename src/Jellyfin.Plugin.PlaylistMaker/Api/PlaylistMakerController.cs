@@ -463,8 +463,16 @@ public class PlaylistMakerController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult> AddItems([FromRoute] Guid playlistId, [FromBody] AddItemsRequestDto request)
     {
+        // IPlaylistManager.AddItemToPlaylistAsync gained a required `int? position` parameter
+        // (inserted before userId) between Jellyfin 10.11 and 12.0 - passing null preserves the
+        // same "append at the end" behavior the 10.11 (position-less) overload always had.
+#if NET10_0_OR_GREATER
+        await _playlistManager.AddItemToPlaylistAsync(playlistId, request.ItemIds.ToList(), null, request.UserId)
+            .ConfigureAwait(false);
+#else
         await _playlistManager.AddItemToPlaylistAsync(playlistId, request.ItemIds.ToList(), request.UserId)
             .ConfigureAwait(false);
+#endif
 
         return NoContent();
     }

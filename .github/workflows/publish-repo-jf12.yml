@@ -1,0 +1,96 @@
+name: Publish to plugin repository (Jellyfin 12 track)
+
+# Same job shape as publish-repo.yml, but builds the net10.0 artifact for the Jellyfin 12+ track
+# instead of net9.0/10.x. jprm always reads its build config from a file literally named
+# `build.yaml` inside the directory it's pointed at, with no override flag - so this copies the
+# plugin source into a scratch directory and merges build.jf12.yaml's overrides (version,
+# targetAbi, framework, changelog) onto a copy of build.yaml there, instead of touching the real
+# build.yaml. The two tracks publish into the SAME manifest.json/plugin entry (same guid) on
+# gh-pages, since Jellyfin's own client filters+picks a compatible version per-server; see
+# build.jf12.yaml's comment for why this track's version numbers must stay >= v2.0.0.0.
+#
+# Triggered by pushing a tag like "jf12-v2.0.0.0" (matching build.jf12.yaml's version).
+
+on:
+  push:
+    tags:
+      - 'jf12-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install jprm
+        run: pip install jprm pyyaml
+
+      - name: Determine version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#jf12-v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Jellyfin 12 build directory
+        run: |
+          rm -rf jf12-build
+          cp -r src/Jellyfin.Plugin.PlaylistMaker jf12-build
+          python3 - <<'PYEOF'
+          import yaml
+
+          with open('src/Jellyfin.Plugin.PlaylistMaker/build.yaml') as f:
+              cfg = yaml.safe_load(f)
+          with open('src/Jellyfin.Plugin.PlaylistMaker/build.jf12.yaml') as f:
+              overrides = yaml.safe_load(f)
+
+          cfg.update(overrides)
+
+          with open('jf12-build/build.yaml', 'w') as f:
+              yaml.safe_dump(cfg, f, sort_keys=False)
+          PYEOF
+
+      - name: Build and package plugin
+        id: package
+        run: |
+          mkdir -p artifacts
+          zip_path=$(jprm plugin build jf12-build \
+            --output artifacts \
+            --version "${{ steps.version.outputs.version }}" \
+            --dotnet-configuration Release \
+            --dotnet-framework net10.0)
+          echo "zip_path=${zip_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Update repository manifest
+        run: |
+          jprm repo add gh-pages/manifest.json "${{ steps.package.outputs.zip_path }}" \
+            --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+
+      - name: Commit and push manifest
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Publish ${{ github.ref_name }} to plugin repository" || echo "Nothing to commit"
+          git push
