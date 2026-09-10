@@ -4,7 +4,7 @@
     <!--
       Multi-targeted so the same source tree/DLL-name builds two separate plugin artifacts, one
       per Jellyfin major line - jprm's packaging (see publish-repo.yml / publish-repo-jf12.yml)
-      builds each TargetFramework separately via `dotnet build --framework <tfm>`, which works
+      builds each TargetFramework separately via `dotnet build -f <tfm>`, which works
       fine against a <TargetFrameworks> (plural) project since dotnet just picks that one TFM's
       dependency graph. net9.0 is Jellyfin 10.11.x/11.x's host runtime; net10.0 is Jellyfin 12's
       (confirmed via each version's Jellyfin.Controller nuspec, which only ships a lib group for

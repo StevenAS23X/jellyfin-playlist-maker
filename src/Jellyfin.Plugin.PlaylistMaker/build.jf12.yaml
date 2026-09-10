@@ -1,0 +1,30 @@
+# Jellyfin 12+ build track - see build.yaml for the shared plugin metadata (guid, name,
+# description, overview, owner, category, artifacts). This file only overrides what differs for
+# a Jellyfin 12 build: version, targetAbi, framework, and this track's own changelog. The CI
+# workflow (auto-tag-jf12.yml / publish-repo-jf12.yml) merges these over a copy of build.yaml
+# before invoking jprm - build.yaml's own version/targetAbi/framework are what the 10.x/11.x
+# track actually ships with, unaffected by this file.
+#
+# Version numbers in this file stay in the 2.x.x.x+ range, and build.yaml's 10.x/11.x track stays
+# in 1.x.x.x, on purpose: Jellyfin resolves "latest compatible" by picking the highest version
+# number among every entry whose targetAbi the running server satisfies - a 12.x server satisfies
+# BOTH tracks' targetAbi (10.11.0.0 and 12.0.0.0 are each <= a 12.x server's own version), so if
+# this track's version number ever dropped below the 1.x track's, a 12.x server would get offered
+# the net9.0 build instead and fail to load it (same ABI break as running it on 10.x). Reserving
+# a major-version range per track makes that impossible without hand-coordinating version numbers
+# release to release - just never drop a v2.x.x.x release below the highest v1.x.x.x one, which
+# can't happen by construction as long as each track only ever increments its own number.
+version: "2.0.0.0"
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+changelog: |
+  ## v2.0.0.0
+  - Initial Jellyfin 12 compatible build: retargeted to net10.0 / Jellyfin.Controller 12.0.0. The
+    interfaces and entities this plugin uses (IPlaylistManager, ILibraryManager, IUserManager,
+    IUserDataManager, IProviderManager, BasePlugin, IPluginServiceRegistrator) are unchanged
+    between Jellyfin 10.11 and 12.0, so no server-facing plugin code needed to change beyond the
+    retarget itself.
+  - Same feature set as v1.1.22.0 (the release this track was ported from), including the fix for
+    sign-in/API calls/images failing under Jellyfin 12's default-off "Legacy authorization" - that
+    fix already covers both tracks since it lives in the shared app.html. See build.yaml's
+    changelog for the full feature history shared by both tracks.
