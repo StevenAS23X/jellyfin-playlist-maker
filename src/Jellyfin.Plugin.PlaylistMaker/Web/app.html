@@ -1524,6 +1524,15 @@
                 getDeviceId() + '", Version="' + CLIENT_VERSION + '"';
         }
 
+        // Same as authHeader(), plus the session token, sent on the standard Authorization header.
+        // Jellyfin 12 disables "legacy authorization" by default, which is what the old
+        // X-Emby-Token/X-Emby-Authorization headers (and the api_key query param) depend on - only
+        // the standard Authorization header (and the ApiKey query param used by imageUrl/audioUrl)
+        // are accepted unconditionally on both 10.x and 12.x.
+        function authorizedHeader() {
+            return authHeader() + ', Token="' + state.token + '"';
+        }
+
         function buildQuery(params) {
             var usp = new URLSearchParams();
             Object.keys(params || {}).forEach(function (key) {
@@ -1544,7 +1553,7 @@
         function apiGet(path, params) {
             var url = path + buildQuery(params);
             return fetch(url, {
-                headers: { 'X-Emby-Token': state.token }
+                headers: { 'Authorization': authorizedHeader() }
             }).then(function (response) {
                 if (!response.ok) {
                     throw new Error('Request failed (' + response.status + ')');
@@ -1557,7 +1566,7 @@
             return fetch(path, {
                 method: 'POST',
                 headers: {
-                    'X-Emby-Token': state.token,
+                    'Authorization': authorizedHeader(),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(body)
@@ -1577,7 +1586,7 @@
             var url = path + buildQuery(params);
             return fetch(url, {
                 method: 'DELETE',
-                headers: { 'X-Emby-Token': state.token }
+                headers: { 'Authorization': authorizedHeader() }
             }).then(function (response) {
                 if (!response.ok) {
                     throw new Error('Request failed (' + response.status + ')');
@@ -1591,7 +1600,7 @@
             return fetch(url, {
                 method: 'POST',
                 headers: {
-                    'X-Emby-Token': state.token,
+                    'Authorization': authorizedHeader(),
                     'Content-Type': file.type || 'image/jpeg'
                 },
                 body: file
@@ -1606,7 +1615,10 @@
             if (!itemId) {
                 return null;
             }
-            var url = '/Items/' + itemId + '/Images/Primary?fillWidth=100&fillHeight=100&quality=85&api_key=' + encodeURIComponent(state.token);
+            // ApiKey (no underscore) is always accepted; the older api_key/X-Emby-Token style
+            // params only work when the server has "Legacy authorization" enabled (Jellyfin 12+
+            // disables it by default, which would otherwise 401 every image silently).
+            var url = '/Items/' + itemId + '/Images/Primary?fillWidth=100&fillHeight=100&quality=85&ApiKey=' + encodeURIComponent(state.token);
             if (cacheBust) {
                 url += '&_=' + cacheBust;
             }
@@ -1643,7 +1655,7 @@
         }
 
         function audioUrl(itemId) {
-            return '/Audio/' + itemId + '/stream?static=true&api_key=' + encodeURIComponent(state.token);
+            return '/Audio/' + itemId + '/stream?static=true&ApiKey=' + encodeURIComponent(state.token);
         }
 
         function formatSeconds(seconds) {
@@ -3969,7 +3981,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Emby-Authorization': authHeader()
+                    'Authorization': authHeader()
                 },
                 body: JSON.stringify({ Username: username, Pw: password })
             }).then(function (response) {
@@ -4006,7 +4018,7 @@
 
             fetch('/QuickConnect/Initiate', {
                 method: 'POST',
-                headers: { 'X-Emby-Authorization': authHeader() }
+                headers: { 'Authorization': authHeader() }
             }).then(function (response) {
                 if (!response.ok) {
                     throw new Error('Quick Connect is not available on this server.');

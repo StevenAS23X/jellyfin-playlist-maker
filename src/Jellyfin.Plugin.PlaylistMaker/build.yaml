@@ -9,8 +9,16 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.21.0"
+version: "1.1.22.0"
 changelog: |
+  ## v1.1.22.0
+  - Fix sign-in and every API call (loading playlists, search, recommendations, image/audio
+    URLs, etc.) silently failing with 401s on a Jellyfin server that has "Legacy authorization"
+    disabled - Jellyfin 12 turns that off by default. The app now authenticates with the
+    standard Authorization header (and ApiKey query param for images/audio) instead of the
+    legacy X-Emby-Token/X-Emby-Authorization headers and api_key query param, which only work
+    when that legacy setting is explicitly re-enabled. Works the same on 10.x/11.x either way.
+
   ## v1.1.21.0
   - Fix track/artist/album cover art sometimes showing the browser's generic broken-image icon
     instead of anything the app controls - a stale library image cache, a file removed/moved on
