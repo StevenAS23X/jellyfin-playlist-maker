@@ -122,6 +122,70 @@
                     cursor: default;
                 }
 
+                .pmk-panelHeaderRow {
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: space-between;
+                    gap: 1em;
+                }
+
+                .pmk-panelHeaderRow h2 {
+                    margin-top: 0;
+                }
+
+                .pmk-historyRow {
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: space-between;
+                    gap: 0.9em;
+                    padding: 0.6em 0.3em;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                }
+
+                .pmk-historyRow:last-child {
+                    border-bottom: none;
+                }
+
+                .pmk-historyInfo {
+                    min-width: 0;
+                    flex: 1;
+                }
+
+                .pmk-historyTitle {
+                    font-weight: 600;
+                }
+
+                .pmk-historyMeta {
+                    font-size: 0.78em;
+                    opacity: 0.55;
+                    margin-top: 0.3em;
+                }
+
+                .pmk-historyError {
+                    font-size: 0.85em;
+                    color: #e0455b;
+                    margin-top: 0.3em;
+                }
+
+                .pmk-historyBadge {
+                    flex-shrink: 0;
+                    padding: 0.15em 0.7em;
+                    border-radius: 999px;
+                    font-size: 0.78em;
+                    font-weight: 600;
+                    white-space: nowrap;
+                }
+
+                .pmk-historyBadgeOk {
+                    background: rgba(63, 191, 95, 0.18);
+                    color: #3fbf5f;
+                }
+
+                .pmk-historyBadgeFail {
+                    background: rgba(224, 69, 91, 0.18);
+                    color: #e0455b;
+                }
+
                 [hidden] {
                     display: none !important;
                 }
@@ -180,6 +244,19 @@
                     <h2>Custom Requests</h2>
                     <p class="pmk-subtitle">Links users have submitted for anything the Lidarr artist/album search can't resolve on its own. Dismiss a request once you've handled it.</p>
                     <div id="pmkCustomRequestsList">
+                        <p class="pmk-empty">Loading&hellip;</p>
+                    </div>
+                </section>
+
+                <section class="pmk-panel pmk-requestHistory">
+                    <div class="pmk-panelHeaderRow">
+                        <div>
+                            <h2>Request History</h2>
+                            <p class="pmk-subtitle">Every artist/album request made through the app, who made it, and whether Lidarr accepted it - including each request made by a bulk "Request via Lidarr" pass over a playlist's missing tracks.</p>
+                        </div>
+                        <button is="emby-button" type="button" id="pmkClearHistoryButton" class="raised">Clear History</button>
+                    </div>
+                    <div id="pmkRequestHistoryList">
                         <p class="pmk-empty">Loading&hellip;</p>
                     </div>
                 </section>
@@ -428,12 +505,87 @@
                         });
                     }
 
+                    function buildHistoryRow(record) {
+                        var row = document.createElement('div');
+                        row.className = 'pmk-historyRow';
+
+                        var info = document.createElement('div');
+                        info.className = 'pmk-historyInfo';
+
+                        var title = document.createElement('div');
+                        title.className = 'pmk-historyTitle';
+                        title.textContent = record.RequestType === 'Album'
+                            ? (record.ArtistName + ' – ' + record.AlbumTitle)
+                            : record.ArtistName;
+                        info.appendChild(title);
+
+                        var meta = document.createElement('div');
+                        meta.className = 'pmk-historyMeta';
+                        meta.textContent = record.RequestType + ' request • ' + record.UserName + ' • ' + formatTimestamp(record.RequestedAt);
+                        info.appendChild(meta);
+
+                        if (!record.Succeeded && record.ErrorMessage) {
+                            var err = document.createElement('div');
+                            err.className = 'pmk-historyError';
+                            err.textContent = record.ErrorMessage;
+                            info.appendChild(err);
+                        }
+
+                        row.appendChild(info);
+
+                        var badge = document.createElement('span');
+                        badge.className = 'pmk-historyBadge ' + (record.Succeeded ? 'pmk-historyBadgeOk' : 'pmk-historyBadgeFail');
+                        badge.textContent = record.Succeeded ? 'Requested' : 'Failed';
+                        row.appendChild(badge);
+
+                        return row;
+                    }
+
+                    function loadRequestHistory() {
+                        var listEl = pageEl.querySelector('#pmkRequestHistoryList');
+                        apiGet('PlaylistMaker/MusicRequests/History').then(function (records) {
+                            clearChildren(listEl);
+                            if (!records || records.length === 0) {
+                                var empty = document.createElement('p');
+                                empty.className = 'pmk-empty';
+                                empty.textContent = 'No requests yet.';
+                                listEl.appendChild(empty);
+                                return;
+                            }
+                            records.forEach(function (record) {
+                                listEl.appendChild(buildHistoryRow(record));
+                            });
+                        }).catch(function () {
+                            clearChildren(listEl);
+                            var err = document.createElement('p');
+                            err.className = 'pmk-empty';
+                            err.textContent = 'Could not load request history.';
+                            listEl.appendChild(err);
+                        });
+                    }
+
+                    function clearRequestHistory() {
+                        if (!window.confirm('Clear all Lidarr request history? This cannot be undone.')) {
+                            return;
+                        }
+
+                        var button = pageEl.querySelector('#pmkClearHistoryButton');
+                        button.disabled = true;
+                        apiDelete('PlaylistMaker/MusicRequests/History').then(function () {
+                            loadRequestHistory();
+                        }).finally(function () {
+                            button.disabled = false;
+                        });
+                    }
+
                     function init() {
                         loadLidarrConfig();
                         loadCustomRequests();
+                        loadRequestHistory();
 
                         pageEl.querySelector('#pmkLidarrTestButton').addEventListener('click', connectLidarr);
                         pageEl.querySelector('#pmkLidarrSaveButton').addEventListener('click', saveLidarrSettings);
+                        pageEl.querySelector('#pmkClearHistoryButton').addEventListener('click', clearRequestHistory);
                     }
 
                     pageEl.addEventListener('pageshow', init);

@@ -9,8 +9,15 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.22.0"
+version: "1.1.23.0"
 changelog: |
+  ## v1.1.23.0
+  - Add a "Request History" section to the Music Requests admin settings page: every artist/album
+    request made through the app - including each individual request made by a bulk "Request via
+    Lidarr" pass over a playlist's missing tracks - is now logged with who requested it, what was
+    requested, and whether Lidarr accepted it (with the error message when it didn't). Admins can
+    clear the log from the same page.
+
   ## v1.1.22.0
   - Fix sign-in and every API call (loading playlists, search, recommendations, image/audio
     URLs, etc.) silently failing with 401s on a Jellyfin server that has "Legacy authorization"

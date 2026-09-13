@@ -34,6 +34,7 @@ public class PlaylistMakerController : ControllerBase
     private readonly ILidarrService _lidarrService;
     private readonly IRequestRateLimiter _requestRateLimiter;
     private readonly ICustomRequestService _customRequestService;
+    private readonly ILidarrRequestHistoryService _lidarrRequestHistoryService;
     private readonly IPendingImportService _pendingImportService;
     private readonly IUserManager _userManager;
     private readonly ILogger<PlaylistMakerController> _logger;
@@ -47,6 +48,7 @@ public class PlaylistMakerController : ControllerBase
     /// <param name="lidarrService">Instance of the <see cref="ILidarrService"/> interface.</param>
     /// <param name="requestRateLimiter">Instance of the <see cref="IRequestRateLimiter"/> interface.</param>
     /// <param name="customRequestService">Instance of the <see cref="ICustomRequestService"/> interface.</param>
+    /// <param name="lidarrRequestHistoryService">Instance of the <see cref="ILidarrRequestHistoryService"/> interface.</param>
     /// <param name="pendingImportService">Instance of the <see cref="IPendingImportService"/> interface.</param>
     /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{PlaylistMakerController}"/> interface.</param>
@@ -57,6 +59,7 @@ public class PlaylistMakerController : ControllerBase
         ILidarrService lidarrService,
         IRequestRateLimiter requestRateLimiter,
         ICustomRequestService customRequestService,
+        ILidarrRequestHistoryService lidarrRequestHistoryService,
         IPendingImportService pendingImportService,
         IUserManager userManager,
         ILogger<PlaylistMakerController> logger)
@@ -67,6 +70,7 @@ public class PlaylistMakerController : ControllerBase
         _lidarrService = lidarrService;
         _requestRateLimiter = requestRateLimiter;
         _customRequestService = customRequestService;
+        _lidarrRequestHistoryService = lidarrRequestHistoryService;
         _pendingImportService = pendingImportService;
         _userManager = userManager;
         _logger = logger;
@@ -663,15 +667,19 @@ public class PlaylistMakerController : ControllerBase
                 $"You've hit the request limit. Try again in about {minutes} minute{(minutes == 1 ? string.Empty : "s")}.");
         }
 
+        var userName = _userManager.GetUserById(request.UserId)?.Username ?? "Unknown user";
+
         try
         {
             await _lidarrService.RequestArtist(request.ForeignArtistId, request.ArtistName, cancellationToken)
                 .ConfigureAwait(false);
+            _lidarrRequestHistoryService.Add(userName, "Artist", request.ArtistName, null, succeeded: true, errorMessage: null);
             return NoContent();
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "Music request failed for {ArtistName}", request.ArtistName);
+            _lidarrRequestHistoryService.Add(userName, "Artist", request.ArtistName, null, succeeded: false, ex.Message);
             return BadRequest(ex.Message);
         }
     }
@@ -724,6 +732,8 @@ public class PlaylistMakerController : ControllerBase
                 $"You've hit the request limit. Try again in about {minutes} minute{(minutes == 1 ? string.Empty : "s")}.");
         }
 
+        var userName = _userManager.GetUserById(request.UserId)?.Username ?? "Unknown user";
+
         try
         {
             await _lidarrService.RequestAlbum(
@@ -732,11 +742,13 @@ public class PlaylistMakerController : ControllerBase
                 request.ArtistName,
                 request.AlbumTitle,
                 cancellationToken).ConfigureAwait(false);
+            _lidarrRequestHistoryService.Add(userName, "Album", request.ArtistName, request.AlbumTitle, succeeded: true, errorMessage: null);
             return NoContent();
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "Album request failed for {AlbumTitle}", request.AlbumTitle);
+            _lidarrRequestHistoryService.Add(userName, "Album", request.ArtistName, request.AlbumTitle, succeeded: false, ex.Message);
             return BadRequest(ex.Message);
         }
     }
@@ -807,6 +819,31 @@ public class PlaylistMakerController : ControllerBase
     public ActionResult DeleteCustomRequest([FromRoute] Guid id)
     {
         return _customRequestService.Remove(id) ? NoContent() : NotFound();
+    }
+
+    /// <summary>
+    /// Gets every Lidarr artist/album request made through the app, for the admin settings page.
+    /// </summary>
+    /// <returns>All stored request history, newest first.</returns>
+    [HttpGet("MusicRequests/History")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<LidarrRequestRecordDto>> GetLidarrRequestHistory()
+    {
+        return Ok(_lidarrRequestHistoryService.GetAll());
+    }
+
+    /// <summary>
+    /// Clears the Lidarr request history.
+    /// </summary>
+    /// <returns>No content.</returns>
+    [HttpDelete("MusicRequests/History")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public ActionResult ClearLidarrRequestHistory()
+    {
+        _lidarrRequestHistoryService.Clear();
+        return NoContent();
     }
 
     /// <summary>

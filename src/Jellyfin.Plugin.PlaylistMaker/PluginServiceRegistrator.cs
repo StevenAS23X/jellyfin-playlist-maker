@@ -17,6 +17,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ILidarrService, LidarrService>();
         serviceCollection.AddSingleton<IRequestRateLimiter, RequestRateLimiter>();
         serviceCollection.AddSingleton<ICustomRequestService, CustomRequestService>();
+        serviceCollection.AddSingleton<ILidarrRequestHistoryService, LidarrRequestHistoryService>();
         serviceCollection.AddSingleton<IPendingImportService, PendingImportService>();
     }
 }

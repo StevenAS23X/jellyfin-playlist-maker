@@ -14,10 +14,16 @@
 # a major-version range per track makes that impossible without hand-coordinating version numbers
 # release to release - just never drop a v2.x.x.x release below the highest v1.x.x.x one, which
 # can't happen by construction as long as each track only ever increments its own number.
-version: "2.0.0.0"
+version: "2.1.0.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 changelog: |
+  ## v2.1.0.0
+  - Same as v1.1.23.0: adds a "Request History" section to the Music Requests admin settings
+    page, logging every artist/album request (including bulk "Request via Lidarr" passes) with
+    who made it and whether Lidarr accepted it. See build.yaml's changelog for the full feature
+    history shared by both tracks.
+
   ## v2.0.0.0
   - Initial Jellyfin 12 compatible build: retargeted to net10.0 / Jellyfin.Controller 12.0.0. The
     interfaces and entities this plugin uses (IPlaylistManager, ILibraryManager, IUserManager,
