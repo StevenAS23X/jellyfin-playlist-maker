@@ -124,13 +124,53 @@
 
                 .pmk-panelHeaderRow {
                     display: flex;
-                    align-items: flex-start;
+                    align-items: center;
                     justify-content: space-between;
                     gap: 1em;
                 }
 
                 .pmk-panelHeaderRow h2 {
                     margin-top: 0;
+                }
+
+                .pmk-panelToggle {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    width: 100%;
+                    min-width: 0;
+                    background: none;
+                    border: none;
+                    padding: 0;
+                    margin: 0;
+                    color: inherit;
+                    font: inherit;
+                    text-align: left;
+                    cursor: pointer;
+                }
+
+                .pmk-panelToggle h2 {
+                    margin: 0;
+                }
+
+                .pmk-panelToggleChevron {
+                    flex-shrink: 0;
+                    margin-left: 0.8em;
+                    font-size: 0.7em;
+                    opacity: 0.6;
+                    transition: transform 0.15s ease;
+                }
+
+                .pmk-panel.pmk-collapsed .pmk-panelToggleChevron {
+                    transform: rotate(-90deg);
+                }
+
+                .pmk-panelBody {
+                    margin-top: 0.9em;
+                }
+
+                .pmk-panel.pmk-collapsed .pmk-panelBody {
+                    display: none;
                 }
 
                 .pmk-historyRow {
@@ -198,66 +238,79 @@
                     <p class="pmk-subtitle">Lidarr integration settings for the standalone Playlist Maker app's "Request Music" feature, and custom requests submitted by users.</p>
                 </header>
 
-                <section class="pmk-panel pmk-lidarrSettings">
-                    <h2>Music Requests (Lidarr)</h2>
-                    <p class="pmk-subtitle">Let users search for and request new artists/albums to be added to your library from the standalone app. Requires a running Lidarr instance.</p>
+                <section class="pmk-panel pmk-lidarrSettings" data-collapsible-key="lidarr">
+                    <button type="button" class="pmk-panelToggle" aria-expanded="true" aria-controls="pmkLidarrSettingsBody">
+                        <h2>Music Requests (Lidarr)</h2>
+                        <span class="pmk-panelToggleChevron" aria-hidden="true">&#9660;</span>
+                    </button>
+                    <div class="pmk-panelBody" id="pmkLidarrSettingsBody">
+                        <p class="pmk-subtitle">Let users search for and request new artists/albums to be added to your library from the standalone app. Requires a running Lidarr instance.</p>
 
-                    <label class="pmk-publicToggle">
-                        <input is="emby-checkbox" type="checkbox" id="pmkLidarrEnabled" />
-                        <span>Enable music requests</span>
-                    </label>
+                        <label class="pmk-publicToggle">
+                            <input is="emby-checkbox" type="checkbox" id="pmkLidarrEnabled" />
+                            <span>Enable music requests</span>
+                        </label>
 
-                    <div class="inputContainer">
-                        <input is="emby-input" id="pmkLidarrBaseUrl" type="text" label="Lidarr URL" placeholder="http://lidarr:8686" />
-                    </div>
-                    <div class="inputContainer">
-                        <input is="emby-input" id="pmkLidarrApiKey" type="text" label="Lidarr API Key" placeholder="Settings &gt; General &gt; Security in Lidarr" />
-                    </div>
-
-                    <button is="emby-button" type="button" id="pmkLidarrTestButton" class="raised">Connect &amp; Load Options</button>
-                    <span class="pmk-status" id="pmkLidarrTestStatus"></span>
-
-                    <div class="inputContainer" id="pmkLidarrRootFolderField" hidden>
-                        <select is="emby-select" id="pmkLidarrRootFolder" label="Root Folder"></select>
-                    </div>
-                    <div class="inputContainer" id="pmkLidarrQualityField" hidden>
-                        <select is="emby-select" id="pmkLidarrQualityProfile" label="Quality Profile"></select>
-                    </div>
-                    <div class="inputContainer" id="pmkLidarrMetadataField" hidden>
-                        <select is="emby-select" id="pmkLidarrMetadataProfile" label="Metadata Profile"></select>
-                    </div>
-
-                    <div class="inputContainer">
-                        <input is="emby-input" id="pmkMaxRequestsPerUser" type="number" min="0" step="1" label="Max requests per user" />
-                        <div class="fieldDescription">How many requests (artists, albums, and custom requests combined) a single user may make within the time window below. 0 means unlimited.</div>
-                    </div>
-                    <div class="inputContainer">
-                        <input is="emby-input" id="pmkRequestWindowHours" type="number" min="1" step="1" label="Time window (hours)" />
-                        <div class="fieldDescription">The rolling time period the request limit above applies to.</div>
-                    </div>
-
-                    <button is="emby-button" type="button" id="pmkLidarrSaveButton" class="raised button-submit">Save Music Request Settings</button>
-                    <div class="pmk-status" id="pmkLidarrSaveStatus"></div>
-                </section>
-
-                <section class="pmk-panel pmk-customRequests">
-                    <h2>Custom Requests</h2>
-                    <p class="pmk-subtitle">Links users have submitted for anything the Lidarr artist/album search can't resolve on its own. Dismiss a request once you've handled it.</p>
-                    <div id="pmkCustomRequestsList">
-                        <p class="pmk-empty">Loading&hellip;</p>
-                    </div>
-                </section>
-
-                <section class="pmk-panel pmk-requestHistory">
-                    <div class="pmk-panelHeaderRow">
-                        <div>
-                            <h2>Request History</h2>
-                            <p class="pmk-subtitle">Every artist/album request made through the app, who made it, and whether Lidarr accepted it - including each request made by a bulk "Request via Lidarr" pass over a playlist's missing tracks.</p>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="pmkLidarrBaseUrl" type="text" label="Lidarr URL" placeholder="http://lidarr:8686" />
                         </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="pmkLidarrApiKey" type="text" label="Lidarr API Key" placeholder="Settings &gt; General &gt; Security in Lidarr" />
+                        </div>
+
+                        <button is="emby-button" type="button" id="pmkLidarrTestButton" class="raised">Connect &amp; Load Options</button>
+                        <span class="pmk-status" id="pmkLidarrTestStatus"></span>
+
+                        <div class="inputContainer" id="pmkLidarrRootFolderField" hidden>
+                            <select is="emby-select" id="pmkLidarrRootFolder" label="Root Folder"></select>
+                        </div>
+                        <div class="inputContainer" id="pmkLidarrQualityField" hidden>
+                            <select is="emby-select" id="pmkLidarrQualityProfile" label="Quality Profile"></select>
+                        </div>
+                        <div class="inputContainer" id="pmkLidarrMetadataField" hidden>
+                            <select is="emby-select" id="pmkLidarrMetadataProfile" label="Metadata Profile"></select>
+                        </div>
+
+                        <div class="inputContainer">
+                            <input is="emby-input" id="pmkMaxRequestsPerUser" type="number" min="0" step="1" label="Max requests per user" />
+                            <div class="fieldDescription">How many requests (artists, albums, and custom requests combined) a single user may make within the time window below. 0 means unlimited.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" id="pmkRequestWindowHours" type="number" min="1" step="1" label="Time window (hours)" />
+                            <div class="fieldDescription">The rolling time period the request limit above applies to.</div>
+                        </div>
+
+                        <button is="emby-button" type="button" id="pmkLidarrSaveButton" class="raised button-submit">Save Music Request Settings</button>
+                        <div class="pmk-status" id="pmkLidarrSaveStatus"></div>
+                    </div>
+                </section>
+
+                <section class="pmk-panel pmk-customRequests" data-collapsible-key="customRequests">
+                    <button type="button" class="pmk-panelToggle" aria-expanded="true" aria-controls="pmkCustomRequestsBody">
+                        <h2>Custom Requests</h2>
+                        <span class="pmk-panelToggleChevron" aria-hidden="true">&#9660;</span>
+                    </button>
+                    <div class="pmk-panelBody" id="pmkCustomRequestsBody">
+                        <p class="pmk-subtitle">Links users have submitted for anything the Lidarr artist/album search can't resolve on its own. Dismiss a request once you've handled it.</p>
+                        <div id="pmkCustomRequestsList">
+                            <p class="pmk-empty">Loading&hellip;</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="pmk-panel pmk-requestHistory" data-collapsible-key="history">
+                    <div class="pmk-panelHeaderRow">
+                        <button type="button" class="pmk-panelToggle" aria-expanded="true" aria-controls="pmkRequestHistoryBody">
+                            <h2>Request History</h2>
+                            <span class="pmk-panelToggleChevron" aria-hidden="true">&#9660;</span>
+                        </button>
                         <button is="emby-button" type="button" id="pmkClearHistoryButton" class="raised">Clear History</button>
                     </div>
-                    <div id="pmkRequestHistoryList">
-                        <p class="pmk-empty">Loading&hellip;</p>
+                    <div class="pmk-panelBody" id="pmkRequestHistoryBody">
+                        <p class="pmk-subtitle">Every artist/album request made through the app, who made it, and whether Lidarr accepted it - including each request made by a bulk "Request via Lidarr" pass over a playlist's missing tracks.</p>
+                        <div id="pmkRequestHistoryList">
+                            <p class="pmk-empty">Loading&hellip;</p>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -578,10 +631,63 @@
                         });
                     }
 
+                    var COLLAPSE_STORAGE_PREFIX = 'pmkAdminSectionCollapsed:';
+
+                    function isSectionCollapsed(key) {
+                        try {
+                            return localStorage.getItem(COLLAPSE_STORAGE_PREFIX + key) === '1';
+                        } catch (e) {
+                            return false;
+                        }
+                    }
+
+                    function setSectionCollapsed(key, collapsed) {
+                        try {
+                            if (collapsed) {
+                                localStorage.setItem(COLLAPSE_STORAGE_PREFIX + key, '1');
+                            } else {
+                                localStorage.removeItem(COLLAPSE_STORAGE_PREFIX + key);
+                            }
+                        } catch (e) {
+                            // Collapse state just won't persist across visits - not worth failing over.
+                        }
+                    }
+
+                    // Every settings section (Lidarr config, Custom Requests, Request History) can be
+                    // collapsed independently, remembered per-browser via localStorage - useful once
+                    // there's more than a screenful of settings/history to scroll past, especially on
+                    // a phone/tablet screen.
+                    function initCollapsiblePanels() {
+                        var panels = pageEl.querySelectorAll('[data-collapsible-key]');
+                        panels.forEach(function (panel) {
+                            var key = panel.getAttribute('data-collapsible-key');
+                            var toggle = panel.querySelector('.pmk-panelToggle');
+                            if (!toggle || toggle.dataset.pmkBound === '1') {
+                                return;
+                            }
+
+                            toggle.dataset.pmkBound = '1';
+
+                            function applyState(collapsed) {
+                                panel.classList.toggle('pmk-collapsed', collapsed);
+                                toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                            }
+
+                            applyState(isSectionCollapsed(key));
+
+                            toggle.addEventListener('click', function () {
+                                var collapsed = !panel.classList.contains('pmk-collapsed');
+                                applyState(collapsed);
+                                setSectionCollapsed(key, collapsed);
+                            });
+                        });
+                    }
+
                     function init() {
                         loadLidarrConfig();
                         loadCustomRequests();
                         loadRequestHistory();
+                        initCollapsiblePanels();
 
                         pageEl.querySelector('#pmkLidarrTestButton').addEventListener('click', connectLidarr);
                         pageEl.querySelector('#pmkLidarrSaveButton').addEventListener('click', saveLidarrSettings);

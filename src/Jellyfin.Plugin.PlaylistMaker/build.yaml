@@ -9,8 +9,19 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.23.0"
+version: "1.1.24.0"
 changelog: |
+  ## v1.1.24.0
+  - The Music Requests admin settings page's three sections (Lidarr config, Custom Requests,
+    Request History) can now each be collapsed independently, remembered per-browser - useful
+    once there's a screenful of history to scroll past.
+  - Touch-friendlier standalone app: every small icon/text button (track actions, reorder
+    buttons, chips, playlist picker, now-playing controls, etc.) gets a bigger tap target on
+    touch devices (phones, tablets, touch laptops), the missing-tracks banner stacks instead of
+    squeezing onto one line on narrow screens, and the playlist drag handle - which can't
+    actually respond to a touch drag gesture - is hidden on touch so it doesn't look like a dead
+    control (the move-to-top/up/down/bottom buttons next to it still fully reorder by tapping).
+
   ## v1.1.23.0
   - Add a "Request History" section to the Music Requests admin settings page: every artist/album
     request made through the app - including each individual request made by a bulk "Request via

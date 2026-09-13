@@ -1258,6 +1258,91 @@
         [hidden] {
             display: none !important;
         }
+
+        /* Narrow screens: stack the missing-tracks banner instead of squeezing its two action
+           buttons onto the same line as the warning text. */
+        @media (max-width: 30em) {
+            .pmk-missingBanner {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .pmk-missingBannerActions {
+                justify-content: flex-end;
+            }
+        }
+
+        /* Touch devices (phones, tablets, and touch-screen laptops) get bigger tap targets across
+           every small icon/text button in the app - (pointer: coarse) targets actual touch
+           precision rather than guessing from screen width, so an iPad in landscape still gets
+           this even though it's plenty wide, and a touch laptop gets it at desktop width too.
+           Sizes below target roughly the 44px minimum recommended for touch (Apple HIG/Material). */
+        @media (pointer: coarse) {
+            .pmk-trackAction {
+                padding: 0.6em 1.1em;
+                font-size: 0.9em;
+            }
+
+            .pmk-moveButton {
+                padding: 0.6em 0.7em;
+                font-size: 0.85em;
+            }
+
+            .pmk-trackActions {
+                gap: 0.5em;
+            }
+
+            .pmk-trackArt {
+                width: 3em;
+                height: 3em;
+            }
+
+            .pmk-chip {
+                padding: 0.5em 1em;
+            }
+
+            .pmk-importButton,
+            .pmk-requestMissingButton,
+            .pmk-addAllButton {
+                padding: 0.7em 1em;
+            }
+
+            .pmk-playlistPicker {
+                padding: 0.7em 0.8em;
+            }
+
+            .pmk-playlistMenuItem {
+                padding: 0.8em 0.7em;
+            }
+
+            .pmk-logoutButton {
+                padding: 0.6em 1.1em;
+            }
+
+            .pmk-loginTab {
+                padding: 0.7em 0.5em;
+            }
+
+            .pmk-nowPlayingButton,
+            .pmk-shuffleButton {
+                width: 2.75em;
+                height: 2.75em;
+            }
+
+            .pmk-artistLink,
+            .pmk-crumbLink {
+                display: inline-block;
+                padding: 0.3em 0;
+            }
+
+            /* Drag-and-drop reordering uses the HTML5 drag events, which touch browsers don't
+               fire from a plain touch-and-drag gesture - so the grip handle can't do anything on
+               a phone/tablet. Hiding it avoids a dead control; the move-to-top/up/down/bottom
+               buttons next to it still fully reorder tracks by tapping. */
+            .pmk-dragHandle {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
