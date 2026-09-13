@@ -9,8 +9,19 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.24.0"
+version: "1.1.25.0"
 changelog: |
+  ## v1.1.25.0
+  - Fix "Recommended For You" (and "Request Music") appearing empty/not loading when opened from
+    the README's mobile floating-panel injector script: both default to collapsed whenever the
+    app detects it's running inside an iframe, a behavior meant for the small desktop floating
+    panel where there isn't much room - but the mobile injector now opens the app as a fullscreen
+    takeover (also an iframe), where that default no longer makes sense. The app now recognizes
+    the fullscreen mobile case (via a URL flag the updated injector script sends) and leaves both
+    panels expanded there. Also bumped the collapse toggle's touch target size on touch devices,
+    since it was easy to miss/mis-tap. Requires re-pasting the updated injector script (see the
+    README) to take effect - the plugin update alone isn't enough on its own.
+
   ## v1.1.24.0
   - The Music Requests admin settings page's three sections (Lidarr config, Custom Requests,
     Request History) can now each be collapsed independently, remembered per-browser - useful

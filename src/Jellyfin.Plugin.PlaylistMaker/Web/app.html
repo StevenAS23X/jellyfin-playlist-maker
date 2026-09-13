@@ -1324,7 +1324,8 @@
             }
 
             .pmk-nowPlayingButton,
-            .pmk-shuffleButton {
+            .pmk-shuffleButton,
+            .pmk-collapseToggle {
                 width: 2.75em;
                 height: 2.75em;
             }
@@ -3979,7 +3980,13 @@
         }
 
         function initCollapsiblePanels() {
-            var embedded = window.self !== window.top;
+            // The mobile quick-access panel opens this app fullscreen inside an iframe (see the
+            // README's injector script) and tags its iframe src with ?pmkFullscreen=1 when it
+            // does - there's plenty of room there, unlike the small desktop floating panel this
+            // default-collapse behavior was actually written for, so it's excluded here even
+            // though window.self !== window.top is just as true in both cases.
+            var forcedExpanded = /(?:^|[?&])pmkFullscreen=1(?:&|$)/.test(window.location.search);
+            var embedded = window.self !== window.top && !forcedExpanded;
             makeCollapsible('pmkRecommendBody', 'pmkRecommendToggle', embedded);
             makeCollapsible('pmkRequestMusicBody', 'pmkRequestMusicToggle', embedded);
         }

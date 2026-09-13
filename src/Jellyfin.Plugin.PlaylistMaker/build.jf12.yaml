@@ -14,10 +14,15 @@
 # a major-version range per track makes that impossible without hand-coordinating version numbers
 # release to release - just never drop a v2.x.x.x release below the highest v1.x.x.x one, which
 # can't happen by construction as long as each track only ever increments its own number.
-version: "2.2.0.0"
+version: "2.3.0.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 changelog: |
+  ## v2.3.0.0
+  - Same as v1.1.25.0: fixes "Recommended For You"/"Request Music" defaulting to collapsed in the
+    mobile injector's new fullscreen takeover mode, and bumps the collapse toggle's touch target.
+    See build.yaml's changelog for the full feature history shared by both tracks.
+
   ## v2.2.0.0
   - Same as v1.1.24.0: collapsible sections on the admin settings page, and a touch-friendlier
     standalone app (bigger tap targets, a stacking missing-tracks banner, and the non-functional
