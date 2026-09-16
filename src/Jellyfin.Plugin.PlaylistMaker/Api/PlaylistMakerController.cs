@@ -136,6 +136,25 @@ public class PlaylistMakerController : ControllerBase
     }
 
     /// <summary>
+    /// Searches for albums matching the query, so Search can surface a single album card (opening
+    /// into that album's track listing) instead of a flood of individual tracks when the query is
+    /// really an album name - only tried once an artist-name match fails.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="query">Free-text search query.</param>
+    /// <param name="limit">Maximum number of matching albums to return.</param>
+    /// <returns>Matching albums.</returns>
+    [HttpGet("SearchAlbums")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<AlbumDto>> SearchAlbums(
+        [FromQuery] Guid userId,
+        [FromQuery] string query,
+        [FromQuery] int limit = 5)
+    {
+        return Ok(_recommendationService.SearchAlbums(userId, query, limit));
+    }
+
+    /// <summary>
     /// Browses the library by genre/artist chips, with no free-text query.
     /// </summary>
     /// <param name="userId">The requesting user id.</param>

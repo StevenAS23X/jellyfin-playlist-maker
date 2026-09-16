@@ -9,8 +9,16 @@ artifacts:
   - "Jellyfin.Plugin.PlaylistMaker.dll"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-version: "1.1.25.0"
+version: "1.1.26.0"
 changelog: |
+  ## v1.1.26.0
+  - Search now surfaces a single album card (cover art, opening straight into that album's track
+    listing) when the query matches an album by name, the same "top result" treatment an
+    artist-name query already gets - instead of dumping every one of that album's tracks into the
+    results list individually. Falls back to the normal artist/track search when no album
+    matches either, and an album-name search now skips the heavier multi-query search entirely
+    rather than running it and throwing the results away.
+
   ## v1.1.25.0
   - Fix "Recommended For You" (and "Request Music") appearing empty/not loading when opened from
     the README's mobile floating-panel injector script: both default to collapsed whenever the

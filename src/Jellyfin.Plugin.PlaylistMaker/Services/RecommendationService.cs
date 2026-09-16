@@ -174,6 +174,64 @@ public class RecommendationService : IRecommendationService
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<AlbumDto> SearchAlbums(Guid userId, string query, int limit)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null || string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<AlbumDto>();
+        }
+
+        // Resolve matching album entities via the same indexed SearchTerm lookup SearchArtists
+        // uses, then pull their tracks directly (by AlbumIds) to build each card - the same
+        // two-step pattern GetArtistAlbums already uses to avoid a full-library scan.
+        var albumQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicAlbum },
+            Recursive = true,
+            SearchTerm = query,
+            Limit = limit
+        };
+        var albumIds = _libraryManager.GetItemList(albumQuery).Select(a => a.Id).ToArray();
+
+        if (albumIds.Length == 0)
+        {
+            return Array.Empty<AlbumDto>();
+        }
+
+        var trackQuery = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Audio },
+            Recursive = true,
+            IsVirtualItem = false,
+            AlbumIds = albumIds
+        };
+
+        return DedupeBySong(_libraryManager.GetItemList(trackQuery).OfType<Audio>())
+            .Where(t => t.AlbumEntity is not null)
+            .GroupBy(t => t.AlbumEntity!.Id)
+            .Select(g =>
+            {
+                var album = g.First().AlbumEntity!;
+                var trackCount = g.Count();
+                return new AlbumDto
+                {
+                    Id = album.Id,
+                    Name = album.Name,
+                    ArtistName = g.First().AlbumArtists?.FirstOrDefault(),
+                    ProductionYear = album.ProductionYear,
+                    TrackCount = trackCount,
+                    IsSingle = trackCount <= SingleTrackCountThreshold,
+                    ImageItemId = album.HasImage(ImageType.Primary, 0) ? album.Id : (Guid?)null
+                };
+            })
+            .OrderByDescending(a => a.ProductionYear ?? 0)
+            .ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(limit)
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public IReadOnlyList<TrackDto?> MatchImportRows(Guid userId, IReadOnlyList<ImportRowDto> rows)
     {
         var user = _userManager.GetUserById(userId);

@@ -18,6 +18,13 @@ public class AlbumDto
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the album artist's name. Only populated by a library-wide album search
+    /// (where the artist isn't already implied by context, unlike the artist browser's own album
+    /// list) - null there rather than redundantly repeating the artist you already drilled into.
+    /// </summary>
+    public string? ArtistName { get; set; }
+
+    /// <summary>
     /// Gets or sets the release year, if known.
     /// </summary>
     public int? ProductionYear { get; set; }

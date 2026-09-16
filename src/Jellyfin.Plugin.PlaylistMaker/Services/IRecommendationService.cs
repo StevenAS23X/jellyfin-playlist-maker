@@ -30,6 +30,19 @@ public interface IRecommendationService
     IReadOnlyList<ArtistDto> SearchArtists(Guid userId, string query, int limit);
 
     /// <summary>
+    /// Searches for albums matching the query, for Search to surface a single album "card" (name
+    /// + cover art, opening straight into that album's track listing) instead of a flood of
+    /// individual tracks when the query is really an album name - the same treatment
+    /// <see cref="SearchArtists"/> already gives an artist-name query. Only tried once an
+    /// artist-name match fails, since an artist name takes priority.
+    /// </summary>
+    /// <param name="userId">The requesting user id.</param>
+    /// <param name="query">Free-text search query.</param>
+    /// <param name="limit">Maximum number of matching albums to return.</param>
+    /// <returns>Matching albums.</returns>
+    IReadOnlyList<AlbumDto> SearchAlbums(Guid userId, string query, int limit);
+
+    /// <summary>
     /// Matches a batch of imported rows (e.g. from a CSV playlist export) against the library by
     /// artist + title, using album/duration to disambiguate when a title matches more than one
     /// release by the same artist.

@@ -2961,6 +2961,25 @@
             });
         }
 
+        // Same idea as renderArtistSearchResults, one card per matching album - used when the
+        // query doesn't match an artist but does match an album by name.
+        function renderAlbumSearchResults(container, albums) {
+            clearChildren(container);
+            albums.forEach(function (album) {
+                container.appendChild(buildAlbumRow(album, function () { openAlbumBrowseFromSearch(album); }));
+            });
+        }
+
+        // Opens an album's track listing directly from a search result card, rather than via the
+        // artist drill-down (openArtistBrowse) - seeds state.artistBrowse with just enough context
+        // (the album's own artist name, for the breadcrumb) for openAlbumBrowse/renderAlbumTracks
+        // to work unmodified, including "drilling up" from the breadcrumb into that artist's full
+        // discography.
+        function openAlbumBrowseFromSearch(album) {
+            state.artistBrowse = { artist: album.ArtistName || '', view: 'albums', albums: null, album: null, tracks: null };
+            openAlbumBrowse(album);
+        }
+
         // Fetches a single-track single/EP's one track and adds it straight to the draft -
         // there's nothing to browse for a one-track release, so opening the album view first
         // would just be an extra click to reach the same "Add" a track row already offers.
@@ -3003,6 +3022,9 @@
             var meta = document.createElement('div');
             meta.className = 'pmk-trackMeta';
             var metaParts = [];
+            if (album.ArtistName) {
+                metaParts.push(album.ArtistName);
+            }
             if (album.ProductionYear) {
                 metaParts.push(String(album.ProductionYear));
             }
@@ -3184,9 +3206,10 @@
                 // Check for an artist match first (a small, cheap lookup) - if the query is really
                 // an artist name, show a single artist card instead of flooding the results with
                 // every one of their tracks individually, the way Spotify/Apple Music surface a
-                // "Top result" artist. Only falls through to the full multi-query Search when no
-                // artist matches, which also means an artist-name search skips that heavier lookup
-                // entirely instead of running it and throwing the results away.
+                // "Top result" artist. An album-name match gets the same treatment next, and only
+                // once neither matches does this fall through to the full multi-query Search -
+                // which also means an artist/album-name search skips that heavier lookup entirely
+                // instead of running it and throwing the results away.
                 apiGet('/PlaylistMaker/SearchArtists', { userId: state.userId, query: query, limit: 5 })
                     .then(function (artists) {
                         if (generation !== state.searchGeneration) {
@@ -3196,16 +3219,26 @@
                             renderArtistSearchResults(resultsEl, artists);
                             return;
                         }
-                        return apiGet('/PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
-                            .then(function (tracks) {
+                        return apiGet('/PlaylistMaker/SearchAlbums', { userId: state.userId, query: query, limit: 5 })
+                            .then(function (albums) {
                                 if (generation !== state.searchGeneration) {
                                     return;
                                 }
-                                renderList(resultsEl, tracks, {
-                                    remove: false,
-                                    emptyText: 'No matches found.',
-                                    onClick: addToDraft
-                                });
+                                if (albums && albums.length) {
+                                    renderAlbumSearchResults(resultsEl, albums);
+                                    return;
+                                }
+                                return apiGet('/PlaylistMaker/Search', { userId: state.userId, query: query, limit: 30 })
+                                    .then(function (tracks) {
+                                        if (generation !== state.searchGeneration) {
+                                            return;
+                                        }
+                                        renderList(resultsEl, tracks, {
+                                            remove: false,
+                                            emptyText: 'No matches found.',
+                                            onClick: addToDraft
+                                        });
+                                    });
                             });
                     })
                     .catch(function () {
